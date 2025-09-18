@@ -13,6 +13,13 @@ public enum TokenType {
 
     ASSIGN("="),
     PLUS("+"),
+    MINUS("-"),
+    MULT("*"),
+    SLASH("/"),
+    BANG("!"),
+
+    LT("<"),
+    GT(">"),
 
     COMMA(","),
     SEMICOLON(";"),
@@ -23,7 +30,12 @@ public enum TokenType {
     RBRACE("}"),
 
     FUNCTION("FUNCTION"),
-    LET("LET");
+    LET("LET"),
+    TRUE("TRUE"),
+    FALSE("FALSE"),
+    IF("IF"),
+    ELSE("ELSE"),
+    RETURN("RETURN");
 
 
     private final String literal;
@@ -47,6 +59,11 @@ public enum TokenType {
     static {
         keywords.put("fn", FUNCTION);
         keywords.put("let", LET);
+        keywords.put("true", TRUE);
+        keywords.put("false", FALSE);
+        keywords.put("if", IF);
+        keywords.put("else", ELSE);
+        keywords.put("return", RETURN);
     }
 
     /***

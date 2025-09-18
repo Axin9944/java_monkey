@@ -21,6 +21,9 @@ public enum TokenType {
     LT("<"),
     GT(">"),
 
+    EQ("=="),
+    NOT_EQ("!="),
+
     COMMA(","),
     SEMICOLON(";"),
 

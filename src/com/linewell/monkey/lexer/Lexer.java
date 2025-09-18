@@ -35,7 +35,14 @@ public class Lexer {
 
         switch (ch) {
             case '=':
-                tok = newToken(TokenType.ASSIGN, ch);
+                if (peekChar() == '=') {
+                    char start = ch;
+                    readChar();
+                    String literal = String.valueOf(start) + ch;
+                    tok = newToken(TokenType.EQ, literal);
+                } else {
+                    tok = newToken(TokenType.ASSIGN, ch);
+                }
                 break;
             case ';':
                 tok = newToken(TokenType.SEMICOLON, ch);
@@ -68,7 +75,14 @@ public class Lexer {
                 tok = newToken(TokenType.LT, ch);
                 break;
             case '!':
-                tok = newToken(TokenType.BANG, ch);
+                if (peekChar() == '=') {
+                    char start = ch;
+                    readChar();
+                    String literal = String.valueOf(start) + ch;
+                    tok = newToken(TokenType.NOT_EQ, literal);
+                } else {
+                    tok = newToken(TokenType.BANG, ch);
+                }
                 break;
             case '{':
                 tok = newToken(TokenType.LBRACE, ch);
@@ -164,5 +178,16 @@ public class Lexer {
             readChar();
         }
         return input.substring(start, position);
+    }
+
+    /***
+     * 查看输入中的下一个字符（不移动读取位置）
+     * @return  返回下一个字符，如果已到末尾则返回 '\0'
+     */
+    public char peekChar() {
+        if (readPosition >= input.length()) {
+            return '\0';
+        }
+        return input.charAt(readPosition);
     }
 }

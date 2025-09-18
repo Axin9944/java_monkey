@@ -1,7 +1,7 @@
-package com.linewell.self.monkey.lexer;
+package com.linewell.monkey.lexer;
 
-import com.linewell.self.monkey.token.Token;
-import com.linewell.self.monkey.token.TokenType;
+import com.linewell.monkey.token.Token;
+import com.linewell.monkey.token.TokenType;
 
 public class Lexer {
 
@@ -66,6 +66,10 @@ public class Lexer {
                     String literal = readIdentifier();
                     tok = newToken(TokenType.loopupIdent(literal),
                             literal);
+                    return tok;
+                } else if(isDigit(ch)) {
+                    tok = newToken(TokenType.INT, readNumber());
+                    return tok;
                 } else {
                     tok = newToken(TokenType.ILLEGAL, ch);
                 }
@@ -121,5 +125,26 @@ public class Lexer {
                 || (ch == '\r')) {
             readChar();
         }
+    }
+
+    /***
+     *  判断输入的字符是否为数字
+     * @param ch 要进行判断的字符
+     * @return true 表示输入的字符为数字，false 为不是
+     */
+    public boolean isDigit(char ch) {
+        return '0' <= ch && ch <= '9';
+    }
+
+    /***
+     * 读取连续的数字字符，直至遇见非数字字符为止
+     * @return 数字字符串，如 "123"
+     */
+    public String readNumber() {
+        int start = position;
+        while (isDigit(ch)) {
+            readChar();
+        }
+        return input.substring(start, position);
     }
 }

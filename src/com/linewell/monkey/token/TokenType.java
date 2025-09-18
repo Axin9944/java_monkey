@@ -1,4 +1,4 @@
-package com.linewell.self.monkey.token;
+package com.linewell.monkey.token;
 
 import java.util.HashMap;
 import java.util.Map;

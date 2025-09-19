@@ -19,9 +19,7 @@ public class Token {
 
     @Override
     public String toString() {
-        return "Token{" +
-                "type=" + type +
-                ", literal='" + literal + '\'' +
-                '}';
+        return String.format("Token{type='%s', literal='%s'}", type, literal);
     }
+
 }

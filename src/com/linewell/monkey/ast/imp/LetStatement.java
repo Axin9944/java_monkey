@@ -5,9 +5,9 @@ import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.token.Token;
 
 public class LetStatement implements Statement {
-    private final Token token;
-    private final Identifier name;
-    private final Expression expression;
+    private Token token;
+    private Identifier name;
+    private Expression expression;
 
 
     public LetStatement(Token token, Identifier name, Expression expression) {
@@ -16,6 +16,14 @@ public class LetStatement implements Statement {
         this.expression = expression;
     }
 
+    public LetStatement() {
+    }
+
+    public LetStatement(Token token) {
+        this.token = token;
+    }
+
+    @Override
     public Token getToken() {
         return token;
     }
@@ -26,6 +34,18 @@ public class LetStatement implements Statement {
 
     public Expression getExpression() {
         return expression;
+    }
+
+    public void setToken(Token token) {
+        this.token = token;
+    }
+
+    public void setName(Identifier name) {
+        this.name = name;
+    }
+
+    public void setExpression(Expression expression) {
+        this.expression = expression;
     }
 
     @Override

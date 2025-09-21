@@ -7,14 +7,21 @@ import java.util.List;
 
 public class Program implements Node {
 
-    private final List<Statement> statements;
+    private List<Statement> statements;
 
     public Program(List<Statement> statements) {
         this.statements = statements;
     }
 
+    public Program() {
+    }
+
     public List<Statement> getStatements() {
         return statements;
+    }
+
+    public void setStatements(List<Statement> statements) {
+        this.statements = statements;
     }
 
     @Override

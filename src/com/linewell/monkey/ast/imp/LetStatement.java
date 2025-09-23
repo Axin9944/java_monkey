@@ -5,8 +5,13 @@ import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.token.Token;
 
 public class LetStatement implements Statement {
+    // let 关键字
     private Token token;
+
+    // 变量名
     private Identifier name;
+
+    // 变量的值
     private Expression expression;
 
 

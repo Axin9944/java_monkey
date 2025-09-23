@@ -62,4 +62,17 @@ public class LetStatement implements Statement {
     public String tokenLiteral() {
         return token.getLiteral();
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(tokenLiteral()).append(" ");
+        sb.append(name.toString());
+        sb.append(" = ");
+        if (expression != null) {
+            sb.append(expression);
+        }
+        sb.append(";");
+        return sb.toString();
+    }
 }

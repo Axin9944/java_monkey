@@ -49,4 +49,15 @@ public class ReturnStatement implements Statement {
     public String tokenLiteral() {
         return token.getLiteral();
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append(tokenLiteral()).append(" ");
+        if (returnValue != null) {
+            sb.append(returnValue);
+        }
+        sb.append(";");
+        return sb.toString();
+    }
 }

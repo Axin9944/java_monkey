@@ -7,4 +7,10 @@ public interface Node {
      * @return
      */
     String tokenLiteral();
+
+    /**
+     * 返回节点的字符串表示，通常用于调试和生成源码
+     * @return 节点的源码风格字符串
+     */
+    String toString();
 }

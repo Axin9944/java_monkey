@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.ast.imp.Identifier;
 import com.linewell.monkey.ast.imp.LetStatement;
 import com.linewell.monkey.ast.imp.Program;
+import com.linewell.monkey.ast.imp.ReturnStatement;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.token.Token;
 import com.linewell.monkey.token.TokenType;
@@ -105,6 +106,8 @@ public class Parser {
             // 如果当前是 let 关键字，调用 let 语句解析器
             case LET:
                 return  parseLetStatement();
+            case RETURN:
+                return parseReturnStatement();
             default:
                 return null;
         }
@@ -134,6 +137,27 @@ public class Parser {
             // 缺少 '='，语法错误
             return null;
         }
+
+        // TODO 跳过对表达式的处理，直到遇见分号
+        // 目前简单处理：一直推进 Token，直到遇到分号 ';'
+        while (!curTokenIs(TokenType.SEMICOLON)) {
+            nextToken();
+        }
+
+        return stmt;
+    }
+
+    /**
+     *  解析 return 语句
+     *  该方法负责解析形如以下的语句：
+     *   return 5;
+     *
+     * @return 解析得到的 {@link ReturnStatement} 节点，永远不会为 {@code null}
+     */
+    public ReturnStatement  parseReturnStatement() {
+        ReturnStatement stmt = new ReturnStatement(currentToken);
+
+        nextToken();
 
         // TODO 跳过对表达式的处理，直到遇见分号
         // 目前简单处理：一直推进 Token，直到遇到分号 ';'

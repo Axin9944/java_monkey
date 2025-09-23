@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.ast.imp.Identifier;
 import com.linewell.monkey.ast.imp.LetStatement;
 import com.linewell.monkey.ast.imp.Program;
+import com.linewell.monkey.ast.imp.ReturnStatement;
 import com.linewell.monkey.lexer.Lexer;
 
 import java.util.List;
@@ -13,6 +14,7 @@ public class Parser_Test {
     public static void main(String[] args) {
         System.out.println("Running Parser Tests...\n");
         testLetStatements();
+        testReturnStatements();
     }
 
     /**
@@ -64,6 +66,35 @@ public class Parser_Test {
             System.out.println("✅ ALL TESTS PASSED");
         } else {
             System.out.println("❌ SOME TESTS FAILED");
+        }
+    }
+
+    public static void testReturnStatements(){
+        String input = "return 5;\n" +
+                "return 10;\n" +
+                "return 993 322;\n";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        if (program.getStatements().size() != 3) {
+            System.err.println("program.Statements does not contain 3 statements. got=" +  program.getStatements().size());
+        }
+
+        for (Statement stmt : program.getStatements()) {
+            if (!(stmt instanceof ReturnStatement)) {
+                System.err.println("stmt not ReturnStatement. got=" + stmt.getClass().getSimpleName());
+                continue;
+            }
+
+            ReturnStatement returnStmt = (ReturnStatement) stmt;
+
+            if (!returnStmt.tokenLiteral().equals("return")) {
+                System.err.println("retuenStmt.TokenLiteral not 'return'. got= " + returnStmt.tokenLiteral());
+            }
         }
     }
 

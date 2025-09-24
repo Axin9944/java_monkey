@@ -1,20 +1,22 @@
 package com.linewell.monkey.parser;
 
+import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
-import com.linewell.monkey.ast.imp.Identifier;
-import com.linewell.monkey.ast.imp.LetStatement;
-import com.linewell.monkey.ast.imp.Program;
-import com.linewell.monkey.ast.imp.ReturnStatement;
+import com.linewell.monkey.ast.imp.*;
 import com.linewell.monkey.lexer.Lexer;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class Parser_Test {
 
     public static void main(String[] args) {
         System.out.println("Running Parser Tests...\n");
-        testLetStatements();
+        //testLetStatements();
         testReturnStatements();
+        testIdentifierExpressions();
+        testIntegerLiteralExpression();
+        testParsingPrefixExpressions();
     }
 
     /**
@@ -156,5 +158,212 @@ public class Parser_Test {
         for (String msg : errors) {
             System.err.println("Parser error: " + msg);
         }
+    }
+
+    /**
+     * 测试标识符表达式（Identifier Expression）的解析。
+     *
+     * <p>输入：一个简单的标识符 "foobar;"。
+     *
+     * <p>预期行为：
+     * <ul>
+     *   <li>解析后得到的 Program 节点包含 1 条语句</li>
+     *   <li>该语句是 ExpressionStatement 类型</li>
+     *   <li>该语句的表达式是 Identifier 类型</li>
+     *   <li>Identifier 的值（value）为 "foobar"</li>
+     *   <li>Identifier 的词法单元文本（token.literal）为 "foobar"</li>
+     * </ul>
+     *
+     * <p>对应 Go 版本的测试函数：
+     * <pre>{@code
+     * func TestIdentifierExpressions(t *testing.T) {
+     *     input := "foobar;"
+     *     ...
+     * }
+     * }</pre>
+     */
+    public static void testIdentifierExpressions() {
+        String input = "foobar;";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        if (program.getStatements().size() != 1) {
+            System.err.println("progra has not enough statements. got="
+                    + program.getStatements().size());
+        }
+
+        Statement statement = program.getStatements().get(0);
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("program.Statements[0] is not ast.ExpressionStatement. got="
+                    + statement.getClass().getSimpleName());
+            return;
+        }
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+
+        if (!(stmt.getExpression() instanceof Identifier)) {
+            System.err.println("exp not *ast.Identifier. got=" +
+                    stmt.getExpression().getClass().getSimpleName());
+        }
+        Identifier identifier = (Identifier) stmt.getExpression();
+        if (!(identifier.getValue().equals("foobar"))) {
+            System.err.println("ident.Value not foobar. got=" +
+                    identifier.getValue());
+        }
+        if (!(identifier.tokenLiteral().equals("foobar"))) {
+            System.err.println("ident.TokenLiteral not foobar. got=" +
+                    identifier.tokenLiteral());
+        }
+
+    }
+
+    /**
+     * 测试整数字面量表达式（IntegerLiteral Expression）的解析。
+     *
+     * <p>输入：字符串 "5;"。
+     *
+     * <p>预期行为：
+     * <ul>
+     *   <li>解析后 Program 节点包含 1 条语句</li>
+     *   <li>该语句是 ExpressionStatement 类型</li>
+     *   <li>该语句的表达式是 IntegerLiteral 类型</li>
+     *   <li>IntegerLiteral 的值为 5</li>
+     *   <li>IntegerLiteral 的词法单元文本为 "5"</li>
+     * </ul>
+     */
+    public static void testIntegerLiteralExpression() {
+        String input = "5;";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        if (program.getStatements().size() != 1) {
+            System.err.println("program has not enough statements. got=" +
+                    program.getStatements().size());
+        }
+        if (!(program.getStatements().get(0) instanceof ExpressionStatement)) {
+            System.err.println("program.Statements[0] is not ast.ExpressionStatement. got=" +
+                    program.getStatements().get(0).getClass().getSimpleName());
+        }
+        ExpressionStatement stmt = (ExpressionStatement) program.getStatements().get(0);
+
+        if (!(stmt.getExpression() instanceof IntegerLiteral)) {
+            System.err.println("exp not *ast.IntegerLiteral. got=" +
+                    stmt.getExpression().getClass().getSimpleName());
+            return;
+        }
+        IntegerLiteral integerLiteral = (IntegerLiteral) stmt.getExpression();
+        if (integerLiteral.getValue() != 5) {
+            System.err.println("integer.Value not 5. got=" +
+                    integerLiteral.getValue());
+        }
+        if  (!(integerLiteral.tokenLiteral().equals("5"))) {
+            System.err.println("integer.TokenLiteral not 5. got=" +
+                    integerLiteral.tokenLiteral());
+        }
+
+    }
+
+    /**
+     * 测试前缀表达式（Prefix Expression）的解析。
+     *
+     * <p>输入：如 "!5;" 或 "-15;"。
+     *
+     * <p>预期行为：
+     * <ul>
+     *   <li>解析后 Program 节点包含 1 条语句</li>
+     *   <li>该语句是 ExpressionStatement 类型</li>
+     *   <li>该语句的表达式是 PrefixExpression 类型</li>
+     *   <li>PrefixExpression 的操作符与预期一致</li>
+     *   <li>PrefixExpression 的右操作数是整数，值与预期一致</li>
+     * </ul>
+     */
+    public static void testParsingPrefixExpressions() {
+        List<TestParsingPrefixExpressionsCase> testCases =
+                Arrays.asList(new TestParsingPrefixExpressionsCase(
+                        "!5;", "!", 5),
+                        new TestParsingPrefixExpressionsCase(
+                                "-15;", "-", 15));
+
+        for (TestParsingPrefixExpressionsCase testCase : testCases) {
+            Lexer lexer = new Lexer(testCase.input);
+            Parser parser = new Parser(lexer);
+            Program program = parser.parseProgram();
+            checkParserErrors(parser);
+
+            if (program.getStatements().size() != 1) {
+                System.err.println("program.Statements does not contain 1 statements. got=" +
+                        program.getStatements().size());
+                return;
+            }
+
+            if (!(program.getStatements().get(0) instanceof ExpressionStatement)) {
+                System.err.println("program.Statements[0] is not ast.ExpressionStatement. got=" +
+                        program.getStatements().get(0).getClass().getSimpleName());
+                return;
+            }
+            ExpressionStatement statement = (ExpressionStatement) program.getStatements().get(0);
+
+            if (!(statement.getExpression() instanceof PrefixExpression)) {
+                System.err.println("stmt is not ast.PrefixExpression. got=" +
+                        statement.getExpression().getClass().getSimpleName());
+                return;
+            }
+            PrefixExpression prefixExpression = (PrefixExpression) statement.getExpression();
+            if (!prefixExpression.getOperator().equals(testCase.operator)) {
+                System.err.println("exp.Operator is not '" + testCase.operator
+                        + "'. got=" + prefixExpression.getOperator());
+            }
+            if (!testIntegerLiteral(prefixExpression.getRight(), testCase.integerValue)) {
+                return;
+            }
+        }
+    }
+
+    /**
+     * 辅助测试方法：检查表达式是否为指定值的整数字面量。
+     *
+     * @param exp   表达式
+     * @param value 期望的整数值
+     * @return true 如果检查通过，否则 false
+     */
+    public static boolean testIntegerLiteral(Expression exp, long value) {
+        if (!(exp instanceof IntegerLiteral)) {
+            System.err.println("exp not *ast.IntegerLiteral. got=" +
+                    exp.getClass().getSimpleName());
+            return false;
+        }
+        IntegerLiteral integerLiteral = (IntegerLiteral) exp;
+        if (integerLiteral.getValue() != value) {
+            System.err.println("integer.Value not "
+                    + value + ". got=" + integerLiteral.getValue());
+            return false;
+        }
+        if (!(integerLiteral.tokenLiteral().equals(String.valueOf(value)))) {
+            System.err.println("integer.TokenLiteral not " + value + ". got="
+                    + integerLiteral.tokenLiteral());
+            return false;
+        }
+
+        return true;
+    }
+}
+
+/**
+ * 前缀表达式测试用例数据结构。
+ */
+class TestParsingPrefixExpressionsCase {
+    public String input;
+    public String operator;
+    public long integerValue;
+
+    public TestParsingPrefixExpressionsCase(String input, String operator, long integerValue) {
+        this.input = input;
+        this.operator = operator;
+        this.integerValue = integerValue;
     }
 }

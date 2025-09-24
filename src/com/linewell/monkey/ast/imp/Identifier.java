@@ -22,10 +22,6 @@ public class Identifier implements Expression {
         return value;
     }
 
-    @Override
-    public void expressionNode() {
-        // 标记方法，空实现
-    }
 
     @Override
     public String tokenLiteral() {

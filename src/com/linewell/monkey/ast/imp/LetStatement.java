@@ -53,10 +53,6 @@ public class LetStatement implements Statement {
         this.expression = expression;
     }
 
-    @Override
-    public void statementNode() {
-        // 标记方法，空实现
-    }
 
     @Override
     public String tokenLiteral() {

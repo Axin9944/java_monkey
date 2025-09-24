@@ -35,10 +35,6 @@ public class ExpressionStatement implements Statement {
         this.expression = expression;
     }
 
-    @Override
-    public void statementNode() {
-
-    }
 
     /**
      * 返回当前语句第一个 Token 的字面量。

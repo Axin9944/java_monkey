@@ -35,10 +35,6 @@ public class ReturnStatement implements Statement {
         this.token = token;
     }
 
-    @Override
-    public void statementNode() {
-        // 标记方法，无实现
-    }
 
     @Override
     public Token getToken() {

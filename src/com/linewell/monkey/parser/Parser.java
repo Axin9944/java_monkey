@@ -1,33 +1,95 @@
 package com.linewell.monkey.parser;
 
+import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
-import com.linewell.monkey.ast.imp.Identifier;
-import com.linewell.monkey.ast.imp.LetStatement;
-import com.linewell.monkey.ast.imp.Program;
-import com.linewell.monkey.ast.imp.ReturnStatement;
+import com.linewell.monkey.ast.imp.*;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.token.Token;
 import com.linewell.monkey.token.TokenType;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /***
- * Monkey 语言的语法解析器（Parser）
+ * monkey 语言的语法解析器（Parser）
  * 负责将词法分析器（Lexer）输出的 Token 流解析为抽象语法树（AST）
  *
  * 使用“递归下降解析”（Recursive Descent Parsing）技术
  * 维护两个 Token：当前 Token 和向前看 Token（peek），用于预测下一步语法结构
+ * <p>核心设计思想：
+ * <ul>
+ *     <li>通过“注册表”机制动态绑定 Token 类型与解析函数</li>
+ *     <li>使用“前缀/中缀”分类处理表达式（如：-5 是前缀，3+4 是中缀）</li>
+ *     <li>通过优先级控制运算符结合顺序（如：3+4*5 中 * 优先于 +）</li>
+ * </ul>
+ *
  */
 public class Parser {
 
+    // 优先级常量（对应 Go 的 iota）
+    private static final int LOWEST = 0;        // 最低优先级
+    private static final int EQUALS = 1;        // == !=
+    private static final int LESSGREATER = 2;   // > <
+    private static final int SUM = 3;           // + -
+    private static final int PRODUCT = 4;       // * /
+    private static final int PREFIX = 5;        // -x !x
+    private static final int CALL = 6;          // function(x)
+
+    // 优先级映射表（TokenType -> 优先级数值）
+    private static final Map<TokenType, Integer> PRECEDENCES = new HashMap<>();
+
+    static {
+        PRECEDENCES.put(TokenType.EQ, EQUALS);
+        PRECEDENCES.put(TokenType.NOT_EQ, EQUALS);
+        PRECEDENCES.put(TokenType.LT, LESSGREATER);
+        PRECEDENCES.put(TokenType.GT, LESSGREATER);
+        PRECEDENCES.put(TokenType.PLUS, SUM);
+        PRECEDENCES.put(TokenType.MINUS, SUM);
+        PRECEDENCES.put(TokenType.SLASH, PRODUCT);
+        PRECEDENCES.put(TokenType.MULT, PRODUCT);
+    }
+
+    // 词法分析器，提供 token 流
     private Lexer lexer;
 
+    // 当前读取的 token
     private Token currentToken;
 
+    // 向前看一个 token（预读）
     private Token peekToken;
 
+    // 存储解析过程中遇到的错误
     private List<String> errors = new ArrayList<String>();
+
+    // 前缀解析函数映射：TokenType -> 解析函数
+    // 例如：IDENT → parseIdentifier(), BANG → parsePrefixExpression()
+    private Map<TokenType, PrefixParseFn> prefixParseFns;
+
+    // 中缀解析函数映射：TokenType -> 解析函数
+    // 例如：PLUS → parseInfixExpression(), EQ → parseInfixExpression()
+    private Map<TokenType, InfixParseFn> infixParseFns;
+
+    /**
+     * 函数式接口：前缀表达式解析函数
+     * 用于解析以某个 token 开头的表达式，如：!true, -5, x
+     */
+    @FunctionalInterface
+    public interface PrefixParseFn {
+        Expression parse();
+    }
+
+    /**
+     * 函数式接口：中缀表达式解析函数
+     * 用于解析需要左右操作数的表达式，如：3 + 4, x == y
+     */
+    @FunctionalInterface
+    public interface InfixParseFn {
+        // 接收左操作数，返回完整表达式
+        Expression parse(Expression left);
+    }
+
 
     public Lexer getLexer() {
         return lexer;
@@ -61,13 +123,48 @@ public class Parser {
         this.errors.add(errors);
     }
 
+    /**
+     * 构造解析器，初始化词法单元并注册所有解析函数
+     *
+     * @param lexer 词法分析器
+     */
     public Parser(final Lexer lexer) {
         this.lexer = lexer;
         errors = new ArrayList<String>();
+        prefixParseFns = new HashMap<>();
+        infixParseFns = new HashMap<>();
 
         // 读取两个词法单元，已设置curtoken 和 peekToken
         nextToken();
         nextToken();
+
+        // 注册前缀解析函数
+        // 标识符 x
+        registerPrefix(TokenType.IDENT, this::parseIdentifier);
+        // 整数 5
+        registerPrefix(TokenType.INT, this::parseIntegerLiteral);
+        // !true
+        registerPrefix(TokenType.BANG, this::parsePrefixExpression);
+        // -5
+        registerPrefix(TokenType.MINUS, this::parsePrefixExpression);
+
+        // 注册中缀解析函数
+        // +
+        registerInfix(TokenType.PLUS, this::parseInfixExpression);
+        // -
+        registerInfix(TokenType.MINUS, this::parseInfixExpression);
+        // /
+        registerInfix(TokenType.SLASH, this::parseInfixExpression);
+        // *
+        registerInfix(TokenType.MULT, this::parseInfixExpression);
+        // ==
+        registerInfix(TokenType.EQ, this::parseInfixExpression);
+        // !=
+        registerInfix(TokenType.NOT_EQ, this::parseInfixExpression);
+        // <
+        registerInfix(TokenType.LT, this::parseInfixExpression);
+        // >
+        registerInfix(TokenType.GT, this::parseInfixExpression);
     }
 
     public void nextToken() {
@@ -109,7 +206,7 @@ public class Parser {
             case RETURN:
                 return parseReturnStatement();
             default:
-                return null;
+                return parseExpressionStatement();
         }
     }
 
@@ -215,6 +312,172 @@ public class Parser {
         String msg = "Expected next token to be " + type + ", got " +
                 peekToken.getType() + " instead";
         errors.add(msg);
+    }
+
+    /**
+     * 注册前缀解析函数
+     *
+     * @param tokenType 词法单元类型（如 IDENT）
+     * @param fn        解析函数（如 this::parseIdentifier）
+     */
+    public void registerPrefix(TokenType tokenType, PrefixParseFn fn) {
+        prefixParseFns.put(tokenType, fn);
+    }
+
+    /**
+     *  注册中缀解析函数
+     *
+     * @param tokenType 词法单元类型（如 PLUS）
+     * @param fn        解析函数（如 this::parseInfixExpression）
+     */
+    public void registerInfix(TokenType tokenType, InfixParseFn fn) {
+        infixParseFns.put(tokenType, fn);
+    }
+
+    /**
+     * 解析表达式语句，例如：x + 5;
+     *
+     * @return 表达式语句节点
+     */
+    public ExpressionStatement parseExpressionStatement() {
+        ExpressionStatement exStmt = new ExpressionStatement();
+        exStmt.setToken(currentToken);
+        // 解析表达式，从最低优先级开始
+        exStmt.setExpression(parseExpression(LOWEST));
+
+        // 如果下一个是分号，消耗它
+        if (peekTokenIs(TokenType.SEMICOLON)) {
+            nextToken();
+        }
+
+        return exStmt;
+    }
+
+    /**
+     * 解析表达式，使用优先级控制结合顺序
+     *
+     * @param precedence 外层调用的优先级
+     * @return 解析出的表达式
+     */
+    public Expression parseExpression(int precedence) {
+        // 1. 获取当前 token 的前缀解析器
+        PrefixParseFn prefix = prefixParseFns.get(currentToken.getType());
+        if (prefix == null) {
+            noPrefixParseFnError(currentToken.getType());
+            return null;
+        }
+        // 2. 调用前缀解析器，得到左操作数
+        Expression leftExp = prefix.parse();
+
+        // 3. 循环处理中缀操作符（如 +, -, ==）
+        while (!peekTokenIs(TokenType.SEMICOLON) && (precedence < peekPrecedence())) {
+            InfixParseFn infixParseFn = infixParseFns.get(peekToken.getType());
+            if (infixParseFn == null) {
+                // 没有中缀解析器，直接返回
+                return leftExp;
+            }
+            // 移动到中缀操作符 token
+            nextToken();
+            // 调用中缀解析器，更新 leftExp
+            leftExp = infixParseFn.parse(leftExp);
+        }
+
+        return leftExp;
+    }
+
+    /**
+     * 解析标识符表达式, 如: x
+     *
+     * @return 标识符 Identifier 节点
+     */
+    public Expression parseIdentifier() {
+        return new Identifier(currentToken, currentToken.getLiteral());
+    }
+
+    /**
+     * 解析整数字面量表达式, 如: 5
+     *
+     * @return 整数字面量 IntegerLiteral  节点
+     */
+    public Expression parseIntegerLiteral() {
+        IntegerLiteral integerLiteral = new IntegerLiteral();
+        integerLiteral.setToken(currentToken);
+
+        try{
+            long value = Long.parseLong(currentToken.getLiteral());
+            integerLiteral.setValue(value);
+        }catch (NumberFormatException e) {
+            String msg = String.format("Could not parse '%s' as integer",
+                    currentToken.getLiteral());
+            errors.add(msg);
+            return null;
+        }
+
+        return integerLiteral;
+    }
+
+    /**
+     * 当没有找到前缀解析函数时，记录错误
+     *
+     * @param tokenType 当前词法单元类型
+     */
+    public void noPrefixParseFnError(TokenType tokenType) {
+        String msg = String.format("no prefix parse function for %s found", tokenType);
+        errors.add(msg);
+    }
+
+    /**
+     * 解析前缀表达式，如 !true, -5
+     *
+     * @return 前缀表达式 PrefixExpression 节点
+     */
+    public Expression parsePrefixExpression() {
+        PrefixExpression prefixExpression = new PrefixExpression();
+        prefixExpression.setToken(currentToken);
+        prefixExpression.setOperator(currentToken.getLiteral());
+
+        nextToken();
+
+        // 递归解析右操作数
+        prefixExpression.setRight(parseExpression(PREFIX));
+
+        return prefixExpression;
+    }
+
+    /**
+     * 获取下一个词法单元的优先级
+     *
+     * @return 优先级数值
+     */
+    public int peekPrecedence() {
+        return PRECEDENCES.getOrDefault(peekToken.getType(), LOWEST);
+    }
+
+    /**
+     * 获取当前词法单元的优先级
+     *
+     * @return 优先级数值
+     */
+    public int curPrecedence() {
+        return PRECEDENCES.getOrDefault(currentToken.getType(), LOWEST);
+    }
+
+    /**
+     * 解析中缀表达式，如 5 + 5, x == y
+     *
+     * @param left 左侧表达式
+     * @return 中缀表达式节点
+     */
+    public Expression parseInfixExpression(Expression left) {
+        InfixExpression infixExpression = new InfixExpression();
+        infixExpression.setToken(currentToken);
+        infixExpression.setOperator(currentToken.getLiteral());
+        infixExpression.setLeft(left);
+
+        int precedence = curPrecedence();
+        nextToken();
+        infixExpression.setRight(parseExpression(precedence));
+        return infixExpression;
     }
 
 }

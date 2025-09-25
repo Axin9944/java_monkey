@@ -17,6 +17,8 @@ public class Parser_Test {
         testIdentifierExpressions();
         testIntegerLiteralExpression();
         testParsingPrefixExpressions();
+        testParsingInfixExpressions();
+        testOperatorPrecedenceParsing();
     }
 
     /**
@@ -325,6 +327,120 @@ public class Parser_Test {
     }
 
     /**
+     * 测试解析中缀表达式（如 "5 + 5;"）。
+     *
+     * <p>该测试用例会验证 Parser 能否正确地将输入的中缀表达式
+     * 解析为抽象语法树（AST），并检查以下几点：
+     * <ul>
+     *     <li>Program 中只包含 1 条语句</li>
+     *     <li>语句类型为 ExpressionStatement</li>
+     *     <li>表达式类型为 InfixExpression</li>
+     *     <li>左侧、操作符、右侧均符合预期</li>
+     * </ul>
+     */
+    public static void testParsingInfixExpressions() {
+        List<InfixTestCase> infixTestCases = Arrays.asList(new InfixTestCase(
+                "5 + 5;", 5, "+", 5),
+                new InfixTestCase("5 - 5;", 5, "-", 5),
+                new InfixTestCase("5 * 5;", 5, "*", 5),
+                new InfixTestCase("5 / 5;", 5, "/", 5),
+                new InfixTestCase("5 > 5;", 5, ">", 5),
+                new InfixTestCase("5 < 5;", 5, "<", 5),
+                new InfixTestCase("5 == 5;", 5, "==", 5),
+                new InfixTestCase("5 != 5;", 5, "!=", 5));
+
+        for (InfixTestCase testCase : infixTestCases) {
+            Lexer lexer = new Lexer(testCase.input);
+            Parser parser = new Parser(lexer);
+            Program program = parser.parseProgram();
+            checkParserErrors(parser);
+
+            if (program.getStatements().size() != 1) {
+                System.err.println("program.Statements does not contain 1 statements. got=" +
+                        program.getStatements().size());
+                return;
+            }
+
+            if (!(program.getStatements().get(0) instanceof ExpressionStatement)) {
+                System.err.println("program.Statements[0] is not ast.ExpressionStatement. got=" +
+                        program.getStatements().get(0).getClass().getSimpleName());
+                return;
+            }
+
+            ExpressionStatement stmt = (ExpressionStatement) program.getStatements().get(0);
+
+            if (!(stmt.getExpression() instanceof InfixExpression)) {
+                System.err.println("stmt is not InfixExpression. got=" +
+                        stmt.getClass().getSimpleName());
+                return;
+            }
+
+            InfixExpression infixExp = (InfixExpression) stmt.getExpression();
+
+            if (!testIntegerLiteral(infixExp.getLeft(), testCase.leftValue)) {
+                return;
+            }
+
+            if (!infixExp.getOperator().equals(testCase.operator)) {
+                System.err.println("exp.Operator is not '" + testCase.operator
+                        + "'. got=" + infixExp.getOperator());
+                return;
+            }
+
+            if (!testIntegerLiteral(infixExp.getRight(), testCase.rightValue)) {
+                return;
+            }
+        }
+
+    }
+
+    /**
+     * 测试运算符优先级的解析。
+     *
+     * <p>该测试用例通过多组输入（如 "-a * b", "a + b * c + d / e - f" 等），
+     * 检查 Parser 生成的 AST 的 toString() 输出是否与预期的括号化表达式一致。
+     * <br>
+     * 核心目的是验证：
+     * <ul>
+     *     <li>一元运算符（-、!）优先级高于二元运算符</li>
+     *     <li>乘除高于加减</li>
+     *     <li>关系运算符（>、<）和相等运算符（==、!=）的结合性</li>
+     *     <li>表达式的整体结合顺序是否正确</li>
+     * </ul>
+     */
+    public static void testOperatorPrecedenceParsing() {
+        List<OperatorTestCase> operatorTestCases = Arrays.asList(new OperatorTestCase(
+                "-a * b", "((-a) * b)"),
+                new OperatorTestCase("!-a", "(!(-a))"),
+                new OperatorTestCase("a + b + c", "((a + b) + c)"),
+                new OperatorTestCase("a + b - c", "((a + b) - c)"),
+                new OperatorTestCase("a * b  * c", "((a * b) * c)"),
+                new OperatorTestCase("a * b / c", "((a * b) / c)"),
+                new OperatorTestCase("a + b / c", "(a + (b / c))"),
+                new OperatorTestCase("a + b * c + d / e - f",
+                        "(((a + (b * c)) + (d / e)) - f)"),
+                new OperatorTestCase("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
+                new OperatorTestCase("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+                new OperatorTestCase("5 < 4 != 3 < 4", "((5 < 4) != (3 < 4))"),
+                new OperatorTestCase("3 + 4 * 5 == 3 * 1 + 4 * 5",
+                        "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"));
+
+        for (OperatorTestCase testCase : operatorTestCases) {
+            Lexer lexer = new Lexer(testCase.input);
+            Parser parser = new Parser(lexer);
+            Program program = parser.parseProgram();
+            checkParserErrors(parser);
+
+            String string = program.toString();
+            if (!string.equals(testCase.expected)) {
+                System.err.println("expected=" + testCase.expected + " ,got=" +
+                        string);
+            }
+        }
+
+    }
+
+    /**
      * 辅助测试方法：检查表达式是否为指定值的整数字面量。
      *
      * @param exp   表达式
@@ -365,5 +481,49 @@ class TestParsingPrefixExpressionsCase {
         this.input = input;
         this.operator = operator;
         this.integerValue = integerValue;
+    }
+}
+
+/**
+ * 用于保存中缀表达式测试用例的数据结构。
+ *
+ * <p>包含：
+ * <ul>
+ *     <li>input：待解析的源代码字符串（例如 "5 + 5;"）</li>
+ *     <li>leftValue：中缀表达式左操作数的整数值</li>
+ *     <li>operator：中缀操作符（+、-、*、/、>、<、==、!=）</li>
+ *     <li>rightValue：中缀表达式右操作数的整数值</li>
+ * </ul>
+ */
+class InfixTestCase {
+    public String input;
+    public long leftValue;
+    public String operator;
+    public long rightValue;
+
+    public InfixTestCase(String input, long leftValue, String operator, long rightValue) {
+        this.input = input;
+        this.leftValue = leftValue;
+        this.operator = operator;
+        this.rightValue = rightValue;
+    }
+}
+
+/**
+ * 用于保存运算符优先级测试用例的数据结构。
+ *
+ * <p>包含：
+ * <ul>
+ *     <li>input：待解析的源代码字符串（例如 "a + b * c"）</li>
+ *     <li>expected：Parser 生成的 AST 的字符串表示（例如 "(a + (b * c))"）</li>
+ * </ul>
+ */
+class OperatorTestCase {
+    public String input;
+    public String expected;
+
+    public OperatorTestCase(String input, String expected) {
+        this.input = input;
+        this.expected = expected;
     }
 }

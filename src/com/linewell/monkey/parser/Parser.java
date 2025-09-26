@@ -124,7 +124,7 @@ public class Parser {
     }
 
     /**
-     * 构造解析器，初始化词法单元并注册所有解析函数
+     * 构造解析器（Parser），初始化词法单元并注册所有前缀/中缀解析函数。
      *
      * @param lexer 词法分析器
      */
@@ -147,6 +147,14 @@ public class Parser {
         registerPrefix(TokenType.BANG, this::parsePrefixExpression);
         // -5
         registerPrefix(TokenType.MINUS, this::parsePrefixExpression);
+        // true
+        registerPrefix(TokenType.TRUE, this::parseBoolean);
+        // false
+        registerPrefix(TokenType.FALSE, this::parseBoolean);
+        // ()
+        registerPrefix(TokenType.LPAREN, this::parseGroupedExpression);
+        // if
+        registerPrefix(TokenType.IF, this::parseIfExpression);
 
         // 注册中缀解析函数
         // +
@@ -479,5 +487,95 @@ public class Parser {
         infixExpression.setRight(parseExpression(precedence));
         return infixExpression;
     }
+
+    /**
+     * 解析布尔字面量（true/false）。
+     *
+     * @return 布尔表达式节点
+     */
+    public Expression parseBoolean() {
+        return new BooleanType(currentToken, curTokenIs(TokenType.TRUE));
+    }
+
+    /**
+     * 解析括号包裹的表达式，例如 (x + y)。
+     *
+     * @return 表达式节点
+     */
+    public Expression parseGroupedExpression() {
+        nextToken();
+
+        Expression expression = parseExpression(LOWEST);
+
+        if (!expectPeek(TokenType.RPAREN)) {
+            return null;
+        }
+
+        return expression;
+    }
+
+    /**
+     * 解析 if 表达式。
+     * 语法形式：
+     * if (condition) consequence [else alternative]
+     *
+     * @return IfExpression 节点
+     */
+    public Expression parseIfExpression() {
+        IfExpression ifExpression = new IfExpression();
+        ifExpression.setToken(currentToken);
+
+        if (!expectPeek(TokenType.LPAREN)) {
+            return null;
+        }
+
+        nextToken();
+        ifExpression.setCondition(parseExpression(LOWEST));
+
+        if (!expectPeek(TokenType.RPAREN)) {
+            return null;
+        }
+
+        if (!expectPeek(TokenType.LBRACE)) {
+            return null;
+        }
+
+        ifExpression.setConsequence(parseBlockStatement());
+
+        if (peekTokenIs(TokenType.ELSE)) {
+            nextToken();
+
+            if (!expectPeek(TokenType.LBRACE)) {
+                return null;
+            }
+            ifExpression.setAlternative(parseBlockStatement());
+        }
+
+        return ifExpression;
+    }
+
+    /**
+     * 解析代码块语句（BlockStatement）。
+     *
+     * @return BlockStatement 节点
+     */
+    public BlockStatement parseBlockStatement() {
+        BlockStatement blockStatement = new BlockStatement();
+        blockStatement.setStatements(new ArrayList<>());
+
+        nextToken();
+
+        while (!curTokenIs(TokenType.RBRACE) && !curTokenIs(TokenType.EOF)) {
+            Statement statement = parseStatement();
+            if (statement != null) {
+                blockStatement.getStatements().add(statement);
+            }
+            nextToken();
+        }
+
+        return blockStatement;
+    }
+
+
 
 }

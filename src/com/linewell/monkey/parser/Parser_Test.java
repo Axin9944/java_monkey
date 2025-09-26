@@ -19,6 +19,8 @@ public class Parser_Test {
         testParsingPrefixExpressions();
         testParsingInfixExpressions();
         testOperatorPrecedenceParsing();
+        testIfExpression();
+        testIfElseExpression();
     }
 
     /**
@@ -289,7 +291,9 @@ public class Parser_Test {
                 Arrays.asList(new TestParsingPrefixExpressionsCase(
                         "!5;", "!", 5),
                         new TestParsingPrefixExpressionsCase(
-                                "-15;", "-", 15));
+                                "-15;", "-", 15),
+                        new TestParsingPrefixExpressionsCase("!true", "!", true),
+                        new TestParsingPrefixExpressionsCase("!false", "!", false));
 
         for (TestParsingPrefixExpressionsCase testCase : testCases) {
             Lexer lexer = new Lexer(testCase.input);
@@ -320,7 +324,7 @@ public class Parser_Test {
                 System.err.println("exp.Operator is not '" + testCase.operator
                         + "'. got=" + prefixExpression.getOperator());
             }
-            if (!testIntegerLiteral(prefixExpression.getRight(), testCase.integerValue)) {
+            if (!testLiteralExpression(prefixExpression.getRight(), testCase.value)) {
                 return;
             }
         }
@@ -347,7 +351,10 @@ public class Parser_Test {
                 new InfixTestCase("5 > 5;", 5, ">", 5),
                 new InfixTestCase("5 < 5;", 5, "<", 5),
                 new InfixTestCase("5 == 5;", 5, "==", 5),
-                new InfixTestCase("5 != 5;", 5, "!=", 5));
+                new InfixTestCase("5 != 5;", 5, "!=", 5),
+                new InfixTestCase("true == true", true, "==", true),
+                new InfixTestCase("true != false", true, "!=", false),
+                new InfixTestCase("false == false", false, "==", false));
 
         for (InfixTestCase testCase : infixTestCases) {
             Lexer lexer = new Lexer(testCase.input);
@@ -369,25 +376,8 @@ public class Parser_Test {
 
             ExpressionStatement stmt = (ExpressionStatement) program.getStatements().get(0);
 
-            if (!(stmt.getExpression() instanceof InfixExpression)) {
-                System.err.println("stmt is not InfixExpression. got=" +
-                        stmt.getClass().getSimpleName());
-                return;
-            }
-
-            InfixExpression infixExp = (InfixExpression) stmt.getExpression();
-
-            if (!testIntegerLiteral(infixExp.getLeft(), testCase.leftValue)) {
-                return;
-            }
-
-            if (!infixExp.getOperator().equals(testCase.operator)) {
-                System.err.println("exp.Operator is not '" + testCase.operator
-                        + "'. got=" + infixExp.getOperator());
-                return;
-            }
-
-            if (!testIntegerLiteral(infixExp.getRight(), testCase.rightValue)) {
+            if (!testInfixExpression(stmt.getExpression(), testCase.leftValue,
+                    testCase.operator, testCase.rightValue)) {
                 return;
             }
         }
@@ -441,6 +431,170 @@ public class Parser_Test {
     }
 
     /**
+     * 测试单独的 if 表达式解析
+     * 例如：if (x < y) { x }
+     */
+    public static void testIfExpression() {
+        String input = "if (x < y) { x }";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        if (program.getStatements().size() != 1) {
+            System.err.println("program.Statements does not contain 1 statements. got=" +
+                    program.getStatements().size());
+            return;
+        }
+
+        // 类型检查
+        if (!(program.getStatements().get(0) instanceof ExpressionStatement)) {
+            System.err.println("program.Statements[0] is not ast.ExpressionStatement. got=" +
+                    program.getStatements().get(0).getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) program.getStatements().get(0);
+
+        // 类型检查
+        if (!(stmt.getExpression() instanceof IfExpression)) {
+            System.err.println("stmt.Expression is not ast.IfExpression. got=" +
+                    stmt.getExpression().getClass().getSimpleName());
+            return;
+        }
+        IfExpression ifExp = (IfExpression) stmt.getExpression();
+
+        if (!testInfixExpression(ifExp.getCondition(), "x", "<", "y")) {
+            return;
+        }
+
+        if (ifExp.getConsequence().getStatements().size() != 1) {
+            System.err.println("ifExp.Consequence is not 1 statement. got=" +
+                    ifExp.getConsequence().getStatements().size());
+            return;
+        }
+
+        // 类型检查
+        if (!(ifExp.getConsequence().getStatements().get(0) instanceof ExpressionStatement)) {
+            System.err.println("ifExp.Consequence.Statements[0] is not ast.ExpressionStatement. got=" +
+                    ifExp.getConsequence().getStatements().get(0).getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement consequence = (ExpressionStatement) ifExp.getConsequence().getStatements().get(0);
+
+        if (!testIdentifier(consequence.getExpression(), "x")) {
+            return;
+        }
+
+        if (ifExp.getAlternative() != null) {
+            System.err.println("ifExp.Alternative.Statements was not null. got=" +
+                    ifExp.getAlternative().getStatements().get(0));
+        }
+    }
+
+    /**
+     * 测试 if-else 表达式解析
+     * 例如：if (x < y) { x } else { y }
+     */
+    public static void testIfElseExpression() {
+        String input = "if (x < y) { x } else { y }";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        if (program.getStatements().size() != 1) {
+            System.err.println("program.Statements does not contain 1 statements. got=" +
+                    program.getStatements().size());
+            return;
+        }
+
+        Statement statement = program.getStatements().get(0);
+        // 类型检查
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("program.Statements[0] is not ast.ExpressionStatement. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+        // 类型检查
+        if (!(stmt.getExpression() instanceof IfExpression)) {
+            System.err.println("stmt.Expression is not ast.IfExpression. got=" +
+                    stmt.getExpression().getClass().getSimpleName());
+            return;
+        }
+
+        IfExpression ifExp = (IfExpression) stmt.getExpression();
+
+        if (!testInfixExpression(ifExp.getCondition(), "x", "<", "y")) {
+            return;
+        }
+
+        if (ifExp.getConsequence().getStatements().size() != 1) {
+            System.err.println("ifExp.Consequence is not 1 statement. got=" +
+                    ifExp.getConsequence().getStatements().size());
+            return;
+        }
+
+        Statement statement1 = ifExp.getConsequence().getStatements().get(0);
+        // 类型检查
+        if (!(statement1 instanceof ExpressionStatement)) {
+            System.err.println("ifExp.Consequence.Statements[0] is not ast.ExpressionStatement." +
+                    "got=" + statement1.getClass().getSimpleName());
+            return;
+        }
+        ExpressionStatement consequence = (ExpressionStatement) statement1;
+        if (!testIdentifier(consequence.getExpression(), "x")) {
+            return;
+        }
+
+        if ((ifExp.getAlternative().getStatements().size() != 1)) {
+            System.err.println("ifExp.Alternative is not 1 statement. got=" +
+                    ifExp.getAlternative().getStatements().size());
+            return;
+        }
+
+        Statement statement2 = ifExp.getAlternative().getStatements().get(0);
+        // 类型检查
+        if (!(statement2 instanceof ExpressionStatement)) {
+            System.err.println("ifExp.Alternative.Statements[0] is not ast.ExpressionStatement" +
+                    ". got=" + statement2.getClass().getSimpleName());
+            return;
+        }
+        ExpressionStatement alternative = (ExpressionStatement) statement2;
+        if (!testIdentifier(alternative.getExpression(), "y")) {
+            return;
+        }
+
+    }
+
+    /**
+     * 辅助测试方法：根据期望值的类型，判断表达式节点是否匹配。
+     *
+     * @param exp      表达式节点
+     * @param expected 期望值，可以是 Integer, Long, String, Boolean
+     * @return true 如果检查通过，否则 false
+     */
+    public static boolean testLiteralExpression(Expression exp, Object expected) {
+        if (expected instanceof Integer) {
+            return testIntegerLiteral(exp, ((Integer) expected).longValue());
+        } else if(expected instanceof Long) {
+            return testIntegerLiteral(exp, (Long) expected);
+        } else if(expected instanceof String){
+            return testIdentifier(exp, (String) expected);
+        } else if(expected instanceof Boolean) {
+            return testBooleanLiteral(exp, (Boolean) expected);
+        } else {
+            System.err.println("type of exp not handled. got=" + exp);
+            return false;
+        }
+    }
+
+    /**
      * 辅助测试方法：检查表达式是否为指定值的整数字面量。
      *
      * @param exp   表达式
@@ -467,6 +621,111 @@ public class Parser_Test {
 
         return true;
     }
+
+    /**
+     * 辅助测试方法：检查表达式是否为指定标识符。
+     *
+     * @param exp   表达式节点
+     * @param value 期望标识符的字符串值
+     * @return true 如果检查通过，否则 false
+     */
+    public static boolean testIdentifier(Expression exp, String value) {
+        if (!(exp instanceof Identifier)) {
+            System.err.println("exp not *ast.Identifier. got=" +
+                    exp.getClass().getSimpleName());
+            return false;
+        }
+        Identifier identifier = (Identifier) exp;
+
+        if (!identifier.getValue().equals(value)) {
+            System.err.println("ident.Value not " + value +". got=" +
+                    identifier.getValue());
+            return false;
+        }
+
+        if (!identifier.tokenLiteral().equals(value)) {
+            System.err.println("ident.TokenLiteral not " + value + ". got=" +
+                    identifier.tokenLiteral());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 辅助测试方法：检查表达式是否为指定布尔值。
+     *
+     * @param exp   表达式节点
+     * @param value 期望布尔值
+     * @return true 如果检查通过，否则 false
+     */
+    public static boolean testBooleanLiteral(Expression exp, boolean value) {
+        if (!(exp instanceof BooleanType)) {
+            System.err.println("exp not *ast.Boolean. got=" +
+                    exp.getClass().getSimpleName());
+            return false;
+        }
+
+        BooleanType booleanType = (BooleanType) exp;
+
+        if (booleanType.isValue() != value) {
+            System.err.println("booleanType.Value not " + value + ". got=" +
+                    booleanType.isValue());
+            return false;
+        }
+
+        if (!booleanType.tokenLiteral().equals(String.valueOf(value))) {
+            System.err.println("booleanType.TokenLiteral not " + value + ". got=" +
+                    booleanType.tokenLiteral());
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 辅助测试方法：检查表达式是否为指定中缀表达式。
+     *
+     * <p>会依次检查：</p>
+     * <ul>
+     *     <li>表达式类型是否为 {@link InfixExpression}</li>
+     *     <li>左操作数是否与预期值匹配</li>
+     *     <li>运算符是否与预期值匹配</li>
+     *     <li>右操作数是否与预期值匹配</li>
+     * </ul>
+     *
+     * @param exp      待检查的表达式节点
+     * @param left     预期的左操作数（Integer, Long, String, Boolean）
+     * @param operator 预期的运算符，例如 "+"、"-"、"*"、"/"
+     * @param right    预期的右操作数（Integer, Long, String, Boolean）
+     * @return true 如果中缀表达式及其操作数和运算符全部匹配，否则 false
+     */
+    public static boolean testInfixExpression(Expression exp, Object left, String operator,
+                                              Object right) {
+        if (!(exp instanceof InfixExpression)) {
+            System.err.println("exp is not ast.InfixExpression. got=" +
+                    exp.getClass().getSimpleName());
+            return false;
+        }
+
+        InfixExpression infixExpression = (InfixExpression) exp;
+
+        if (!testLiteralExpression(infixExpression.getLeft(), left)) {
+            return false;
+        }
+
+        if (!infixExpression.getOperator().equals(operator)) {
+            System.err.println("exp.Operator is not '" + operator + "'. got=" +
+                    infixExpression.getOperator());
+            return false;
+        }
+
+        if (!testLiteralExpression(infixExpression.getRight(), right)) {
+            return false;
+        }
+
+        return true;
+    }
 }
 
 /**
@@ -475,12 +734,12 @@ public class Parser_Test {
 class TestParsingPrefixExpressionsCase {
     public String input;
     public String operator;
-    public long integerValue;
+    public Object value;
 
-    public TestParsingPrefixExpressionsCase(String input, String operator, long integerValue) {
+    public TestParsingPrefixExpressionsCase(String input, String operator, Object object) {
         this.input = input;
         this.operator = operator;
-        this.integerValue = integerValue;
+        this.value = object;
     }
 }
 
@@ -497,11 +756,11 @@ class TestParsingPrefixExpressionsCase {
  */
 class InfixTestCase {
     public String input;
-    public long leftValue;
+    public Object leftValue;
     public String operator;
-    public long rightValue;
+    public Object rightValue;
 
-    public InfixTestCase(String input, long leftValue, String operator, long rightValue) {
+    public InfixTestCase(String input, Object leftValue, String operator, Object rightValue) {
         this.input = input;
         this.leftValue = leftValue;
         this.operator = operator;

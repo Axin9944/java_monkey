@@ -49,6 +49,7 @@ public class Parser {
         PRECEDENCES.put(TokenType.MINUS, SUM);
         PRECEDENCES.put(TokenType.SLASH, PRODUCT);
         PRECEDENCES.put(TokenType.MULT, PRODUCT);
+        PRECEDENCES.put(TokenType.LPAREN, CALL);
     }
 
     // 词法分析器，提供 token 流
@@ -155,6 +156,7 @@ public class Parser {
         registerPrefix(TokenType.LPAREN, this::parseGroupedExpression);
         // if
         registerPrefix(TokenType.IF, this::parseIfExpression);
+        registerPrefix(TokenType.FUNCTION, this::parseFunctionLiteral);
 
         // 注册中缀解析函数
         // +
@@ -173,6 +175,7 @@ public class Parser {
         registerInfix(TokenType.LT, this::parseInfixExpression);
         // >
         registerInfix(TokenType.GT, this::parseInfixExpression);
+        registerInfix(TokenType.LPAREN, this::parseCallExpression);
     }
 
     public void nextToken() {
@@ -243,9 +246,12 @@ public class Parser {
             return null;
         }
 
-        // TODO 跳过对表达式的处理，直到遇见分号
-        // 目前简单处理：一直推进 Token，直到遇到分号 ';'
-        while (!curTokenIs(TokenType.SEMICOLON)) {
+
+        nextToken();
+
+        stmt.setExpression(parseExpression(LOWEST));
+
+        if (peekTokenIs(TokenType.SEMICOLON)) {
             nextToken();
         }
 
@@ -264,11 +270,15 @@ public class Parser {
 
         nextToken();
 
-        // TODO 跳过对表达式的处理，直到遇见分号
-        // 目前简单处理：一直推进 Token，直到遇到分号 ';'
-        while (!curTokenIs(TokenType.SEMICOLON)) {
+        stmt.setReturnValue(parseExpression(LOWEST));
+
+        if (peekTokenIs(TokenType.SEMICOLON)) {
             nextToken();
         }
+
+        /*while (!curTokenIs(TokenType.SEMICOLON)) {
+            nextToken();
+        }*/
 
         return stmt;
     }
@@ -576,6 +586,135 @@ public class Parser {
         return blockStatement;
     }
 
+    /**
+     * 解析函数字面量 (FunctionLiteral)，例如：
+     * <pre>
+     * fn(x, y) { return x + y; }
+     * </pre>
+     *
+     * @return FunctionLiteral 节点，若语法错误则返回 null
+     */
+    public Expression parseFunctionLiteral() {
+        FunctionLiteral lit = new FunctionLiteral();
+        // 记录 "fn" 的 token
+        lit.setToken(currentToken);
 
+        // 检查是否有左括号 "("
+        if (!expectPeek(TokenType.LPAREN)) {
+            return null;
+        }
 
+        // 解析参数列表
+        lit.setParameters(parseFunctionParameters());
+
+        // 检查是否有左大括号 "{"
+        if (!expectPeek(TokenType.LBRACE)) {
+            return null;
+        }
+
+        // 解析函数体
+        lit.setBody(parseBlockStatement());
+
+        return lit;
+    }
+
+    /**
+     * 解析函数参数列表，例如：
+     * <pre>
+     * (x, y, z)
+     * </pre>
+     *
+     * @return 参数标识符列表，若语法错误则返回 null
+     */
+    public List<Identifier> parseFunctionParameters() {
+        List<Identifier> identifiers = new ArrayList<>();
+
+        // 如果遇到右括号 ")"，表示无参数
+        if (peekTokenIs(TokenType.RPAREN)) {
+            nextToken();
+            return identifiers;
+        }
+
+        // 读取第一个参数
+        nextToken();
+        Identifier ident = new Identifier(currentToken, currentToken.getLiteral());
+        identifiers.add(ident);
+
+        // 处理多个参数，用逗号分隔
+        while(peekTokenIs(TokenType.COMMA)) {
+            // 跳过逗号
+            nextToken();
+            // 移动到下一个参数
+            nextToken();
+            Identifier idt = new Identifier(currentToken, currentToken.getLiteral());
+            identifiers.add(idt);
+        }
+
+        // 检查是否有右括号 ")"
+        if (!expectPeek(TokenType.RPAREN)) {
+            return null;
+        }
+
+        return identifiers;
+    }
+
+    /**
+     * 解析函数调用表达式，例如：
+     * <pre>
+     * add(1, 2, 3)
+     * </pre>
+     *
+     * @param function 被调用的函数表达式
+     * @return CallExpression 节点
+     */
+    public Expression parseCallExpression(Expression function) {
+        CallExpression callExpression = new CallExpression();
+        // 设置被调用的函数
+        callExpression.setFunction(function);
+        // 设置当前 token，即 "("
+        callExpression.setToken(currentToken);
+        // 解析实参列表
+        callExpression.setArguments(parseCallArguments());
+
+        return callExpression;
+    }
+
+    /**
+     * 解析函数调用的参数列表，例如：
+     * <pre>
+     * (x, y + 1, foo())
+     * </pre>
+     *
+     * @return 参数表达式列表，若语法错误则返回 null
+     */
+    public List<Expression> parseCallArguments() {
+        List<Expression> args = new ArrayList<>();
+
+        // 如果遇到右括号 ")"，表示没有参数
+        if (peekTokenIs(TokenType.RPAREN)) {
+            // 跳过 ")"
+            nextToken();
+            return args;
+        }
+
+        // 解析第一个参数
+        nextToken();
+        args.add(parseExpression(LOWEST));
+
+        // 解析后续用逗号分隔的参数
+        while(peekTokenIs(TokenType.COMMA)) {
+            // 跳过逗号
+            nextToken();
+            // 移动到下一个参数
+            nextToken();
+            args.add(parseExpression(LOWEST));
+        }
+
+        // 检查是否有右括号 ")"，若没有则返回 null
+        if (!expectPeek(TokenType.RPAREN)) {
+            return null;
+        }
+
+        return args;
+    }
 }

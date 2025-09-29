@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.ast.imp.*;
 import com.linewell.monkey.lexer.Lexer;
+import com.linewell.monkey.lexer.Lexer_Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -12,7 +13,7 @@ public class Parser_Test {
 
     public static void main(String[] args) {
         System.out.println("Running Parser Tests...\n");
-        //testLetStatements();
+        testLetStatements();
         testReturnStatements();
         testIdentifierExpressions();
         testIntegerLiteralExpression();
@@ -21,62 +22,151 @@ public class Parser_Test {
         testOperatorPrecedenceParsing();
         testIfExpression();
         testIfElseExpression();
+        testFunctionLiteralExpression();
+        testCallExpressionParsing();
     }
 
     /**
-     * 测试 let 语句的解析（包括错误处理）
+     * 测试 let 语句的解析（包括错误处理）。
+     *
+     * 对应 Go 代码中的 TestLetStatements。
+     * 测试内容：
+     * 1. let 语句是否能被正确解析为 AST 节点；
+     * 2. 标识符是否正确；
+     * 3. 赋值的表达式是否正确。
      */
     public static void testLetStatements() {
-        // 输入：故意写错的 Monkey 代码（缺少 '='）
-        String input = "\"" +
+        /*String input = "\"" +
                 "let x = 5;" +
                 "let = 10;" +
                 "let foobar 838383;" +
-                "\"";
+                "\"";*/
+        // 构造测试用例，每个用例包含：源码字符串、预期的标识符、预期的值
+        List<LetTestCase> testCases = Arrays.asList(
+                new LetTestCase("let x = 5;", "x", 5),
+                new LetTestCase("let y = true;", "y", true),
+                new LetTestCase("let foobar = y;", "foobar", "y"));
 
-        Lexer lexer = new Lexer(input);
-        Parser parser = new Parser(lexer);
+        for (LetTestCase testCase : testCases) {
+            // 1. 词法分析
+            Lexer lexer = new Lexer(testCase.input);
+            // 2. 语法分析
+            Parser parser = new Parser(lexer);
+            Program program = parser.parseProgram();
+            // 3. 检查解析器是否有错误
+            checkParserErrors(parser);
 
-        // 解析整个程序
-        Program program = parser.parseProgram();
-
-        // 检查解析器是否有错误
-        checkParserErrors(parser);
-
-        if (program == null) {
-            System.err.println("FAILED: ParseProgram() returned null");
-            return;
-        }
-
-        List<Statement> statements = program.getStatements();
-        if (statements.size() != 3) {
-            System.err.println("FAILED: program.Statements should have 3 statements, but got " + statements.size());
-            return;
-        } else {
-            System.out.println("PASSED: program has 3 statements");
-        }
-
-        // 预期的变量名
-        String[] expectedIdentifiers = {"x", "y", "foobar"};
-
-        boolean allPassed = true;
-        for (int i = 0; i < expectedIdentifiers.length; i++) {
-            Statement stmt = statements.get(i);
-            if (!testLetStatement(stmt, expectedIdentifiers[i])) {
-                System.err.println("FAILED: testLetStatement failed for expected identifier: " + expectedIdentifiers[i]);
-                allPassed = false;
+            if (program.getStatements().size() != 1) {
+                System.err.println("program.Statements does not contain 1 statement. got=" +
+                        program.getStatements().size());
             }
-        }
 
-        if (allPassed) {
-            System.out.println("✅ ALL TESTS PASSED");
-        } else {
-            System.out.println("❌ SOME TESTS FAILED");
+            Statement statement = program.getStatements().get(0);
+
+            if (!testLetStatement(statement, testCase.expectedIdentifier)) {
+                return;
+            }
+
+            LetStatement letStatement = (LetStatement) statement;
+            if (!testLiteralExpression(letStatement.getExpression(), testCase.expectedValue)) {
+                return;
+            }
+
+            /*// 解析整个程序
+            Program program = parser.parseProgram();
+
+            // 检查解析器是否有错误
+            checkParserErrors(parser);
+
+            if (program == null) {
+                System.err.println("FAILED: ParseProgram() returned null");
+                return;
+            }
+
+            List<Statement> statements = program.getStatements();
+            if (statements.size() != 3) {
+                System.err.println("FAILED: program.Statements should have 3 statements, but got " + statements.size());
+                return;
+            } else {
+                System.out.println("PASSED: program has 3 statements");
+            }
+
+            // 预期的变量名
+            String[] expectedIdentifiers = {"x", "y", "foobar"};
+
+            boolean allPassed = true;
+            for (int i = 0; i < expectedIdentifiers.length; i++) {
+                Statement stmt = statements.get(i);
+                if (!testLetStatement(stmt, expectedIdentifiers[i])) {
+                    System.err.println("FAILED: testLetStatement failed for expected identifier: " + expectedIdentifiers[i]);
+                    allPassed = false;
+                }
+            }
+
+            if (allPassed) {
+                System.out.println("✅ ALL TESTS PASSED");
+            } else {
+                System.out.println("❌ SOME TESTS FAILED");
+            }*/
+
         }
     }
 
+    /**
+     * 测试解析器对 return 语句的处理是否正确。
+     * <p>
+     * 本测试会针对几种不同形式的 return 语句（返回整数、布尔值、标识符），
+     * 检查：
+     * <ul>
+     *   <li>是否被正确解析为 {@link ReturnStatement}</li>
+     *   <li>tokenLiteral 是否为 "return"</li>
+     *   <li>返回值表达式是否与预期一致</li>
+     * </ul>
+     */
     public static void testReturnStatements(){
-        String input = "return 5;\n" +
+
+        List<ReturnTestCase> testCases = Arrays.asList(
+                new ReturnTestCase("return 5;", 5),
+                new ReturnTestCase("return true;", true),
+                new ReturnTestCase("return foobar;", "foobar")
+        );
+
+        for (ReturnTestCase testCase : testCases) {
+            Lexer lexer = new Lexer(testCase.input);
+            Parser parser = new Parser(lexer);
+            Program program = parser.parseProgram();
+            checkParserErrors(parser);
+
+            List<Statement> statements = program.getStatements();
+
+            if (statements.size() != 1) {
+                System.err.println("program.Statements does not contain 1 statements. got=" +
+                        statements.size());
+                return;
+            }
+
+            Statement statement = statements.get(0);
+
+            // 类型检查
+            if (!(statement instanceof ReturnStatement)) {
+                System.err.println("stmt not ReturnStatement. got=" +
+                        statement.getClass().getSimpleName());
+                return;
+            }
+
+            ReturnStatement returnStmt = (ReturnStatement) statement;
+
+            if (!returnStmt.tokenLiteral().equals("return")) {
+                System.err.println("returnStmt.TokenLiteral not 'return'. got= " +
+                        returnStmt.tokenLiteral());
+            }
+
+            if (testLiteralExpression(returnStmt.getReturnValue(), testCase.expectedValue)) {
+                return;
+            }
+        }
+
+        /*String input = "return 5;\n" +
                 "return 10;\n" +
                 "return 993 322;\n";
 
@@ -101,7 +191,7 @@ public class Parser_Test {
             if (!returnStmt.tokenLiteral().equals("return")) {
                 System.err.println("retuenStmt.TokenLiteral not 'return'. got= " + returnStmt.tokenLiteral());
             }
-        }
+        }*/
     }
 
     /**
@@ -385,17 +475,19 @@ public class Parser_Test {
     }
 
     /**
-     * 测试运算符优先级的解析。
+     * 测试解析器对不同运算符的优先级和结合性的处理。
      *
-     * <p>该测试用例通过多组输入（如 "-a * b", "a + b * c + d / e - f" 等），
-     * 检查 Parser 生成的 AST 的 toString() 输出是否与预期的括号化表达式一致。
-     * <br>
-     * 核心目的是验证：
+     * <p>通过多组输入（例如 "-a * b", "a + b * c + d / e - f" 等），
+     * 将 Parser 生成的 AST 转换为字符串（带括号），
+     * 并与预期结果进行比较。</p>
+     *
+     * <p>本测试的核心目标：</p>
      * <ul>
-     *     <li>一元运算符（-、!）优先级高于二元运算符</li>
-     *     <li>乘除高于加减</li>
-     *     <li>关系运算符（>、<）和相等运算符（==、!=）的结合性</li>
-     *     <li>表达式的整体结合顺序是否正确</li>
+     *     <li>验证一元运算符（-、!）的优先级高于二元运算符</li>
+     *     <li>验证乘除优先级高于加减</li>
+     *     <li>验证关系运算符（>、<）和相等运算符（==、!=）的结合顺序</li>
+     *     <li>验证括号能正确改变运算顺序</li>
+     *     <li>验证函数调用中的表达式是否正确解析</li>
      * </ul>
      */
     public static void testOperatorPrecedenceParsing() {
@@ -413,7 +505,31 @@ public class Parser_Test {
                 new OperatorTestCase("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
                 new OperatorTestCase("5 < 4 != 3 < 4", "((5 < 4) != (3 < 4))"),
                 new OperatorTestCase("3 + 4 * 5 == 3 * 1 + 4 * 5",
-                        "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"));
+                        "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))"),
+                new OperatorTestCase("true", "true"),
+                new OperatorTestCase("false", "false"),
+                new OperatorTestCase("3 > 5 == false",
+                        "((3 > 5) == false)"),
+                new OperatorTestCase("3 < 5 == true",
+                        "((3 < 5) == true)"),
+                new OperatorTestCase("1 + (2 + 3) + 4",
+                        "((1 + (2 + 3)) + 4)"),
+                new OperatorTestCase("(5 + 5) * 2",
+                        "((5 + 5) * 2)"),
+                new OperatorTestCase("2 / (5 + 5)",
+                        "(2 / (5 + 5))"),
+                new OperatorTestCase("(5 + 5) * 2 * (5 + 5)",
+                        "(((5 + 5) * 2) * (5 + 5))"),
+                new OperatorTestCase("-(5 + 5)",
+                        "(-(5 + 5))"),
+                new OperatorTestCase("!(true == true)",
+                        "(!(true == true))"),
+                new OperatorTestCase("a + add(b * c) + d",
+                        "((a + add((b * c))) + d)"),
+                new OperatorTestCase("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+                        "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"),
+                new OperatorTestCase("add(a + b + c * d / f + g)",
+                        "add((((a + b) + ((c * d) / f)) + g))"));
 
         for (OperatorTestCase testCase : operatorTestCases) {
             Lexer lexer = new Lexer(testCase.input);
@@ -570,6 +686,157 @@ public class Parser_Test {
             return;
         }
 
+    }
+
+    /**
+     * 测试解析器对函数字面量 (function literal) 的处理。
+     *
+     * <p>输入：一个函数定义 {@code fn(x, y) { x + y; }}
+     * <br>测试点包括：
+     * <ul>
+     *     <li>是否被正确解析为 {@link FunctionLiteral}</li>
+     *     <li>函数参数是否解析正确（数量和名称）</li>
+     *     <li>函数体语句数量是否正确</li>
+     *     <li>函数体中的表达式是否正确解析为 {@code x + y}</li>
+     * </ul>
+     */
+    public static void testFunctionLiteralExpression() {
+        String input = "fn(x, y) { x + y; }";
+
+        // 1. 词法分析
+        Lexer lexer = new Lexer(input);
+        // 2. 语法分析
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        // 3. 程序必须只有 1 条语句
+        if (program.getStatements().size() != 1) {
+            System.err.println("program.Statements does not contain 1 statements. got=" +
+                    program.getStatements().size());
+            return;
+        }
+
+        // 4. 获取语句并检查类型
+        Statement statement = program.getStatements().get(0);
+        // 类型检查
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("program.Statements[0] is not ast.ExpressionStatement. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        // 5. 检查表达式是否是 FunctionLiteral
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+        // 类型检查
+        if (!(stmt.getExpression() instanceof FunctionLiteral)) {
+            System.err.println("stmt.Expression is not ast.FunctionLiteral. got=" +
+                    stmt.getExpression().getClass().getSimpleName());
+            return;
+        }
+
+        FunctionLiteral function = (FunctionLiteral) stmt.getExpression();
+        // 6. 检查函数参数数量
+        if (function.getParameters().size() != 2) {
+            System.err.println("function literal parameters wrong. got=" +
+                    function.getParameters().size());
+            return;
+        }
+
+        // 7. 检查参数名是否正确
+        testLiteralExpression(function.getParameters().get(0), "x");
+        testLiteralExpression(function.getParameters().get(1), "y");
+
+        // 8. 检查函数体是否只有 1 条语句
+        if (function.getBody().getStatements().size() != 1) {
+            System.err.println("function.Body.Statements has not 1 statements. got=" +
+                    function.getBody().getStatements().size());
+            return;
+        }
+
+        // 9. 获取函数体语句并检查类型
+        Statement bodyStmt = function.getBody().getStatements().get(0);
+        // 类型检查
+        if (!(bodyStmt instanceof ExpressionStatement)) {
+            System.err.println("function body stmt is not ast.ExpressionStatement. got=" +
+                    bodyStmt.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement body = (ExpressionStatement) bodyStmt;
+
+        // 10. 检查函数体表达式是否是 "x + y"
+        testInfixExpression(body.getExpression(), "x", "+", "y");
+    }
+
+    /**
+     * 测试函数调用表达式的解析。
+     *
+     * <p>输入示例：{@code add(1, 2 * 3, 4 + 5);}
+     * <br>该方法验证解析器是否能正确构建对应的抽象语法树（AST），包括：
+     * <ul>
+     *     <li>函数调用是否被识别为 {@link CallExpression}</li>
+     *     <li>调用的函数名是否为 {@code add}</li>
+     *     <li>参数列表的长度是否正确</li>
+     *     <li>各参数表达式是否正确解析（字面量、运算符优先级）</li>
+     * </ul>
+     *
+     * <p>例如，{@code add(1, 2 * 3, 4 + 5)} 应被解析为：
+     * <pre>
+     * add(
+     *   1,
+     *   (2 * 3),
+     *   (4 + 5)
+     * )
+     * </pre>
+     */
+    public static void testCallExpressionParsing() {
+        String input = "add(1, 2 * 3, 4 + 5);";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        List<Statement> statements = program.getStatements();
+        if (statements.size() != 1) {
+            System.err.println("program.Statements does not contain 1 statements. got=" +
+                    statements.size());
+            return;
+        }
+
+        Statement statement = statements.get(0);
+        // 类型检查
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("statement is not ast.ExpressionStatement. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+
+        // 类型检查
+        if (!(stmt.getExpression() instanceof CallExpression)) {
+            System.err.println("stmt.Expression is not ast.CallExpression. got=" +
+                    stmt.getExpression().getClass().getSimpleName());
+            return;
+        }
+
+        CallExpression exp = (CallExpression) stmt.getExpression();
+
+        if(testIdentifier(exp.getFunction(), "add")) {
+            return;
+        }
+
+        // 参数数量检查
+        if (exp.getArguments().size() != 3) {
+            System.err.println("wrong length of arguments. got=" +
+                    exp.getArguments().size());
+            return;
+        }
+
+        testLiteralExpression(exp.getArguments().get(0), 1);
+        testInfixExpression(exp.getArguments().get(1), 2, "*", 3);
+        testInfixExpression(exp.getArguments().get(2), 4, "+", 5);
     }
 
     /**
@@ -784,5 +1051,47 @@ class OperatorTestCase {
     public OperatorTestCase(String input, String expected) {
         this.input = input;
         this.expected = expected;
+    }
+}
+
+/**
+ * 表示一条 let 语句的测试用例。
+ *
+ * <p>用于测试解析器对 {@code let <identifier> = <value>;} 语句的解析是否正确。
+ * <br>典型示例：
+ * <ul>
+ *     <li>输入：{@code let x = 5;} → 期望标识符 {@code x}，期望值 {@code 5}</li>
+ *     <li>输入：{@code let foobar = true;} → 期望标识符 {@code foobar}，期望值 {@code true}</li>
+ * </ul>
+ */
+class LetTestCase {
+    public String input;
+    public String expectedIdentifier;
+    public Object expectedValue;
+
+    public LetTestCase(String input, String expectedIdentifier, Object expectedValue) {
+        this.input = input;
+        this.expectedIdentifier = expectedIdentifier;
+        this.expectedValue = expectedValue;
+    }
+}
+
+/**
+ * 表示一条 return 语句的测试用例。
+ *
+ * <p>用于测试解析器对 {@code return <value>;} 语句的解析是否正确。
+ * <br>典型示例：
+ * <ul>
+ *     <li>输入：{@code return 5;} → 期望返回值 {@code 5}</li>
+ *     <li>输入：{@code return true;} → 期望返回值 {@code true}</li>
+ * </ul>
+ */
+class ReturnTestCase {
+    public String input;
+    public Object expectedValue;
+
+    public ReturnTestCase(String input, Object expectedValue) {
+        this.input = input;
+        this.expectedValue = expectedValue;
     }
 }

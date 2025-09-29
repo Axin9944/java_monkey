@@ -3,13 +3,28 @@ package com.linewell.monkey.lexer;
 import com.linewell.monkey.token.Token;
 import com.linewell.monkey.token.TokenType;
 
+/**
+ * 词法分析器（Lexer），将 Monkey 语言源码字符串拆分为 Token。
+ *
+ * <p>通过维护当前位置、读取位置以及当前字符，提供逐字符扫描和 Token 生成功能。
+ * 支持标识符、数字、运算符、分隔符等基本元素。
+ */
 public class Lexer {
 
+    // 输入的源码字符串
     private String input;
+    // 当前处理的字符位置（上一个读取的字符位置）
     private int position;
+    // 下一个要读取的字符位置
     private int readPosition;
+    // 当前正在处理的字符
     private char ch;
 
+    /**
+     * 构造 Lexer 并初始化。
+     *
+     * @param input 要进行词法分析的源码字符串
+     */
     public Lexer(String input) {
         this.input = input;
         this.position = 0;
@@ -18,6 +33,10 @@ public class Lexer {
         readChar();      // 初始化时读取第一个字符
     }
 
+    /**
+     * 读取下一个字符并更新 position 与 readPosition。
+     * 如果已到输入末尾，将 ch 设为 '\0'。
+     */
     public void readChar() {
         if (readPosition >= input.length()) {
             ch = '\0';  // 到末尾，设为 null 字符
@@ -28,6 +47,14 @@ public class Lexer {
         readPosition++;
     }
 
+    /**
+     * 获取下一个 Token。
+     *
+     * <p>会跳过空白字符，根据当前字符生成对应 Token。
+     * 支持标识符、数字、运算符、分隔符等。
+     *
+     * @return 下一个词法单元 Token
+     */
     public Token nextToken() {
         Token tok;
 
@@ -111,18 +138,33 @@ public class Lexer {
         return tok;
     }
 
+    /**
+     * 创建一个新的 Token（字符版本）。
+     *
+     * @param tokenType Token 类型
+     * @param ch        单个字符
+     * @return Token 对象
+     */
     private Token newToken(TokenType tokenType, char ch) {
         return new Token(tokenType, String.valueOf(ch));
     }
 
+    /**
+     * 创建一个新的 Token（字符串版本）。
+     *
+     * @param tokenType Token 类型
+     * @param ch        字符串字面量
+     * @return Token 对象
+     */
     private Token newToken(TokenType tokenType, String ch) {
         return new Token(tokenType, ch);
     }
 
-    /***
-     *  判断字符是否为字母
-     * @param ch
-     * @return
+    /**
+     * 判断字符是否为字母（包括下划线）。
+     *
+     * @param ch 待判断字符
+     * @return true 表示是字母或下划线
      */
     public boolean isLetter(char ch) {
         return  ('a' <= ch && ch <= 'z') ||
@@ -147,9 +189,9 @@ public class Lexer {
         return input.substring(start, position);
     }
 
-    /***
-     *  跳过空白字符
-     */
+    /**
+     * 跳过空白字符（空格、制表符、换行、回车）
+     * */
     public void skipWhitespace() {
         while ((ch == ' ')
                 || (ch == '\t')

@@ -34,6 +34,10 @@ import com.linewell.monkey.object.ObjectType;
  */
 public class MonkeyBoolean implements MonkeyObject {
 
+    // 单例实例
+    public static final MonkeyBoolean TRUE = new MonkeyBoolean(true);
+    public static final MonkeyBoolean FALSE = new MonkeyBoolean(false);
+
     /** 存储布尔值（true 或 false） */
     private boolean value;
 
@@ -47,20 +51,11 @@ public class MonkeyBoolean implements MonkeyObject {
     }
 
     /**
-     * 设置布尔值。
-     *
-     * @param value 新的布尔值
-     */
-    public void setValue(boolean value) {
-        this.value = value;
-    }
-
-    /**
      * 构造函数，创建一个新的布尔对象。
      *
      * @param value 初始布尔值
      */
-    public MonkeyBoolean(boolean value) {
+    private MonkeyBoolean(boolean value) {
         this.value = value;
     }
 
@@ -82,5 +77,17 @@ public class MonkeyBoolean implements MonkeyObject {
     @Override
     public String inspect() {
         return Boolean.toString(value);
+    }
+
+    /**
+     * 根据给定的布尔值返回对应的 {@code MonkeyBoolean} 实例。
+     *
+     * <p>使用单例模式，避免重复创建相同值的对象。</p>
+     *
+     * @param value 布尔值
+     * @return 对应的 {@link MonkeyBoolean} 实例
+     */
+    public static MonkeyBoolean getBoolean(boolean value) {
+        return value ? TRUE : FALSE;
     }
 }

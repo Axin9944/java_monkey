@@ -35,6 +35,11 @@ import com.linewell.monkey.object.ObjectType;
  */
 public class MonkeyNull implements MonkeyObject {
 
+    // 单例实例
+    public static final MonkeyNull NULL = new MonkeyNull();
+
+    private MonkeyNull() {}
+
     /**
      * 返回对象的类型标记。
      *

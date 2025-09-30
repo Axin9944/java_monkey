@@ -3,6 +3,8 @@ package com.linewell.monkey.object.imp;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
 
+import java.util.Objects;
+
 /**
  * {@code MonkeyInteger} 表示 Monkey 语言中的整数对象。
  *
@@ -79,5 +81,12 @@ public class MonkeyInteger implements MonkeyObject {
     @Override
     public String inspect() {
         return Long.toString(value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof MonkeyInteger)) return false;
+        MonkeyInteger that = (MonkeyInteger) o;
+        return value == that.value;
     }
 }

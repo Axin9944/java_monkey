@@ -3,6 +3,8 @@ package com.linewell.monkey.object.imp;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
 
+import java.util.Objects;
+
 /**
  * {@code MonkeyError} 表示 Monkey 解释器执行过程中出现的错误对象。
  *
@@ -78,4 +80,12 @@ public class MonkeyError implements MonkeyObject {
     public String inspect() {
         return "ERROR: " + message;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof MonkeyError)) return false;
+        MonkeyError that = (MonkeyError) o;
+        return Objects.equals(message, that.message);
+    }
+
 }

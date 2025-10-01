@@ -1,8 +1,9 @@
 package com.linewell.monkey.evaluator;
 
+import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Node;
 import com.linewell.monkey.ast.Statement;
-import com.linewell.monkey.ast.imp.IfExpression;
+import com.linewell.monkey.ast.imp.*;
 import com.linewell.monkey.object.Environment;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
@@ -33,8 +34,118 @@ public class Evaluator {
     /** 全局共享的空对象 */
     private static final MonkeyNull NULL = MonkeyNull.NULL;
 
-    //TODO 等待其他方法编写完毕
+    /**
+     * 对给定的 AST 节点在指定环境中进行求值。
+     * <p>
+     * 本方法是求值器的核心入口，根据节点的类型不同，分发到对应的处理逻辑。
+     * 支持的节点类型包括：
+     * <ul>
+     *     <li>Program（程序根节点）</li>
+     *     <li>ExpressionStatement（表达式语句）</li>
+     *     <li>IntegerLiteral（整数字面量）</li>
+     *     <li>BooleanType（布尔字面量）</li>
+     *     <li>PrefixExpression（前缀表达式）</li>
+     *     <li>InfixExpression（中缀表达式）</li>
+     *     <li>BlockStatement（语句块）</li>
+     *     <li>IfExpression（if 表达式）</li>
+     *     <li>ReturnStatement（return 语句）</li>
+     *     <li>LetStatement（let 语句）</li>
+     *     <li>Identifier（标识符）</li>
+     * </ul>
+     *
+     * @param node AST 节点
+     * @param env  当前环境，包含变量和函数的绑定
+     * @return 节点求值后的结果对象（MonkeyObject），可能是值、错误或控制流对象
+     */
     public static MonkeyObject eval(Node node, Environment env) {
+
+        // 如果是整个程序（根节点），交给 evalProgram 处理
+        if (node instanceof Program) {
+            return evalProgram((Program) node, env);
+        }
+
+        // 如果是表达式语句（形如 "1 + 2;"），直接对表达式部分求值
+        if (node instanceof ExpressionStatement) {
+            return eval(((ExpressionStatement) node).getExpression(), env);
+        }
+
+        // 整数字面量，直接返回对应的 MonkeyInteger
+        if (node instanceof IntegerLiteral) {
+            return new MonkeyInteger(((IntegerLiteral) node).getValue());
+        }
+
+        // 布尔字面量，转换为 Monkey 内部的布尔对象
+        if (node instanceof BooleanType) {
+            return nativeBoolToMonkeyBoolean(((BooleanType) node).isValue());
+        }
+
+        // 前缀表达式（例如 !true, -5）
+        if (node instanceof PrefixExpression) {
+            PrefixExpression ast =  (PrefixExpression) node;
+            // 先对右操作数求值
+            MonkeyObject right = eval(ast.getRight(), env);
+            if (isError(right)) {
+                // 如果右操作数出错，直接返回错误
+                return right;
+            }
+            return evalPrefixExpression(ast.getOperator(), right);
+        }
+
+        // 中缀表达式（例如 1 + 2, true == false）
+        if (node instanceof InfixExpression) {
+            InfixExpression ast = (InfixExpression) node;
+            // 先求值左操作数
+            MonkeyObject left = eval(ast.getLeft(), env);
+            if (isError(left)) {
+                return left;
+            }
+
+            // 再求值右操作数
+            MonkeyObject right = eval(ast.getRight(), env);
+            if (isError(right)) {
+                return right;
+            }
+            return evalInfixExpression(ast.getOperator(), left, right);
+        }
+
+        // 语句块（由多条语句组成的 {} 块）
+        if (node instanceof BlockStatement) {
+            return evalBlockStatement(((BlockStatement) node), env);
+        }
+
+        // if 表达式
+        if (node instanceof IfExpression) {
+            return evalIfExpression(((IfExpression) node), env);
+        }
+
+        // return 语句
+        if (node instanceof ReturnStatement) {
+            // 先对 return 的值部分求值
+            MonkeyObject val = eval(((ReturnStatement) node).getReturnValue(), env);
+            if (isError(val)) {
+                return val;
+            }
+            // 用 MonkeyReturn 包装，交给上层逻辑处理控制流
+            return new MonkeyReturn(val);
+        }
+
+        // let 语句（变量定义）
+        if (node instanceof LetStatement) {
+            LetStatement letStmt = (LetStatement) node;
+            MonkeyObject val = eval(letStmt.getExpression(), env);
+            if (isError(val)) {
+                return val;
+            }
+            // 将结果绑定到环境中
+            env.set(letStmt.getName().getValue(), val);
+        }
+
+        // 标识符（变量或函数名）
+        if (node instanceof Identifier) {
+            return evalIdentifier((Identifier) node, env);
+        }
+
+        // 未处理的情况，返回 null（表示不支持该节点）
         return null;
     }
 
@@ -69,7 +180,7 @@ public class Evaluator {
      * 将 Java 原生 boolean 转换为 Monkey 语言中的布尔对象。
      *
      * @param input 原生布尔值
-     * @return MonkeyBoolean.TRUE 或 MonkeyBoolean.FALSE
+     * @return MonkeyBoolean.TRUE 或 MonkeyBoolean. FALSE
      */
     private static MonkeyBoolean nativeBoolToMonkeyBoolean(boolean input) {
         return input ? TRUE : FALSE;
@@ -256,6 +367,86 @@ public class Evaluator {
             return obj.type() == ObjectType.ERROR_OBJ;
         }
         return false;
+    }
+
+    /**
+     * 在指定环境中对标识符节点进行求值。
+     * <p>
+     * 方法会从环境中查找该标识符对应的值。
+     * 如果标识符未定义，则返回一个错误对象。
+     *
+     * @param node 标识符 AST 节点
+     * @param env  当前的环境，包含变量绑定信息
+     * @return 标识符对应的值，如果未找到则返回错误对象
+     */
+    private static MonkeyObject evalIdentifier(Identifier node, Environment env) {
+        MonkeyObject monkeyObject = env.get(node.getValue());
+        if (monkeyObject == null) {
+            return newError("identifier not found: " + node.getValue());
+        }
+
+        return monkeyObject;
+    }
+
+    /**
+     * 在指定环境中对语句块节点进行求值。
+     * <p>
+     * 方法会按顺序依次执行语句块中的所有语句。
+     * 如果遇到 return 语句或错误对象，则立即返回，不再继续执行后续语句。
+     *
+     * @param block 语句块 AST 节点
+     * @param env   当前的环境，包含变量绑定信息
+     * @return 最后一个语句的执行结果，或者在执行过程中遇到的 return/错误对象
+     */
+    private static MonkeyObject evalBlockStatement(BlockStatement block,
+                                                   Environment env) {
+        MonkeyObject result = null;
+
+        List<Statement> statements = block.getStatements();
+
+        for (Statement statement : statements) {
+            result = eval(statement, env);
+
+            if (result != null) {
+                ObjectType rt = result.type();
+                if ((rt == ObjectType.RETURN_VALUE_OBJ) ||
+                        (rt == ObjectType.ERROR_OBJ)) {
+                    return result;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * 在指定环境中对程序节点（AST 根节点）进行求值。
+     * <p>
+     * 方法会按顺序依次执行程序中的所有顶层语句。
+     * 如果遇到 return 语句，则返回其内部的值；
+     * 如果遇到错误对象，则立即返回该错误对象。
+     *
+     * @param program 程序 AST 节点，表示整个 Monkey 程序
+     * @param env     当前的环境，包含变量绑定信息
+     * @return 程序执行的结果；如果遇到 return，则返回其值；如果遇到错误对象，则返回错误对象
+     */
+    private static MonkeyObject evalProgram(Program program, Environment env) {
+        MonkeyObject result = null;
+
+        List<Statement> statements = program.getStatements();
+        for (Statement statement : statements) {
+            result = eval(statement, env);
+
+            if (result instanceof MonkeyReturn) {
+                return ((MonkeyReturn) result).getValue();
+            }
+
+            if (result instanceof MonkeyError) {
+                return result;
+            }
+        }
+
+        return result;
     }
 
     /**

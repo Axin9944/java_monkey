@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.imp.Program;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.object.Environment;
 import com.linewell.monkey.object.MonkeyObject;
+import com.linewell.monkey.object.imp.MonkeyBoolean;
 import com.linewell.monkey.object.imp.MonkeyInteger;
 import com.linewell.monkey.parser.Parser;
 
@@ -13,13 +14,24 @@ import java.util.List;
 /**
  * 对 {@link Evaluator} 进行单元测试的类。
  * <p>
- * 当前实现了整数表达式求值的测试，包括加减乘除、括号优先级、前缀表达式等。
+ * 本测试类的目标是验证解释器（Evaluator）能否正确执行输入的 Monkey 程序。
+ * 当前实现了以下两类测试：
+ * <ul>
+ *     <li>整数表达式测试：加减乘除、括号优先级、前缀运算等</li>
+ *     <li>布尔表达式测试：关系运算（<、>、==、!=）、布尔字面量、布尔逻辑表达式</li>
+ * </ul>
+ * <p>
+ * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
+ * 构造出 AST，再交由解释器执行，并将结果与预期值对比。
  */
 public class EvaluatorTest {
 
     public static void main(String[] args) {
         // 执行整数表达式的测试
         testEvalIntegerExpression();
+
+        // 执行布尔表达式的测试
+        testEvalBooleanExpression();
     }
 
     /**
@@ -54,6 +66,48 @@ public class EvaluatorTest {
             }
         }
 
+    }
+
+    /**
+     * 测试布尔表达式的求值结果是否正确。
+     * <p>
+     * 测试内容包括：
+     * <ul>
+     *     <li>布尔字面量（true、false）</li>
+     *     <li>整数比较（<、>、==、!=）</li>
+     *     <li>布尔比较（true == false, true != false 等）</li>
+     *     <li>括号中的逻辑运算</li>
+     * </ul>
+     */
+    public static void testEvalBooleanExpression() {
+        List<EvalBoolTestCase> testCases = Arrays.asList(
+                new EvalBoolTestCase("true", true),
+                new EvalBoolTestCase("false", false),
+                new EvalBoolTestCase("1 < 2", true),
+                new EvalBoolTestCase("1 > 2", false),
+                new EvalBoolTestCase("1 < 1", false),
+                new EvalBoolTestCase("1 > 1", false),
+                new EvalBoolTestCase("1 == 1", true),
+                new EvalBoolTestCase("1 != 1", false),
+                new EvalBoolTestCase("1 == 2", false),
+                new EvalBoolTestCase("1 != 2", true),
+                new EvalBoolTestCase("true == true", true),
+                new EvalBoolTestCase("false == false", true),
+                new EvalBoolTestCase("true == false", false),
+                new EvalBoolTestCase("true != false", true),
+                new EvalBoolTestCase("false != true", true),
+                new EvalBoolTestCase("(1 < 2) == true", true),
+                new EvalBoolTestCase("(1 < 2) == false", false),
+                new EvalBoolTestCase("(1 > 2) == true", false),
+                new EvalBoolTestCase("(1 > 2) == false", true)
+        );
+
+        for (EvalBoolTestCase testCase : testCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            if (testMonkeyBoolean(monkeyObject, testCase.expected)) {
+                System.out.println(testCase.input + " = " + testCase.expected + " [Parse]");
+            }
+        }
     }
 
     /**
@@ -103,6 +157,30 @@ public class EvaluatorTest {
         return true;
     }
 
+    /**
+     * 验证求值结果是否为布尔值，并且值等于期望值。
+     *
+     * @param obj      求值结果对象
+     * @param expected 期望的布尔值
+     * @return 如果类型和值都正确返回 true，否则打印错误信息并返回 false
+     */
+    public static boolean testMonkeyBoolean(MonkeyObject obj, boolean expected) {
+        if (!(obj instanceof MonkeyBoolean)) {
+            System.err.println("monkey object is not Boolean. got=" +
+                    obj.getClass().getSimpleName());
+            return false;
+        }
+
+        MonkeyBoolean result = (MonkeyBoolean) obj;
+
+        if (result.isValue() != expected) {
+            System.err.println("monkey boolean has wrong value. got=" +
+                    result.isValue() + ", want=" + expected);
+            return  false;
+        }
+        return true;
+    }
+
 }
 
 /**
@@ -117,6 +195,21 @@ class EvalIntTestCase {
     public long expected;
 
     public EvalIntTestCase(String input, long expected) {
+        this.input = input;
+        this.expected = expected;
+    }
+}
+
+/**
+ * 用于描述布尔表达式测试用例的数据类。
+ * <p>
+ * 包含一个输入表达式（字符串）和期望的计算结果（boolean 类型）。
+ */
+class EvalBoolTestCase {
+    public String input;
+    public boolean expected;
+
+    public EvalBoolTestCase(String input, boolean expected) {
         this.input = input;
         this.expected = expected;
     }

@@ -5,7 +5,9 @@ import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.object.Environment;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.imp.MonkeyBoolean;
+import com.linewell.monkey.object.imp.MonkeyError;
 import com.linewell.monkey.object.imp.MonkeyInteger;
+import com.linewell.monkey.object.imp.MonkeyNull;
 import com.linewell.monkey.parser.Parser;
 
 import java.util.Arrays;
@@ -19,6 +21,11 @@ import java.util.List;
  * <ul>
  *     <li>整数表达式测试：加减乘除、括号优先级、前缀运算等</li>
  *     <li>布尔表达式测试：关系运算（<、>、==、!=）、布尔字面量、布尔逻辑表达式</li>
+ *     <li>逻辑非运算（!、!!）</li>
+ *     <li>条件语句（if-else 表达式）</li>
+ *     <li>返回语句（return）</li>
+ *     <li>错误处理（类型错误、未定义标识符等）</li>
+ *     <li>变量绑定（let 语句）</li>
  * </ul>
  * <p>
  * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
@@ -32,6 +39,21 @@ public class EvaluatorTest {
 
         // 执行布尔表达式的测试
         testEvalBooleanExpression();
+
+        // 执行逻辑非运算的测试
+        testBangOperator();
+
+        // 执行 if-else 表达式测试
+        testIfElseExpression();
+
+        // 执行 return 语句测试
+        testReturnStatement();
+
+        // 执行错误处理测试
+        testErrorHandling();
+
+        // 执行 let 语句测试
+        testLetStatement();
     }
 
     /**
@@ -111,6 +133,150 @@ public class EvaluatorTest {
     }
 
     /**
+     * 测试逻辑非运算符（!、!!）的求值结果是否正确。
+     * <p>
+     * 涉及布尔值、整数值的逻辑取反，验证解释器能否正确区分真值与假值。
+     */
+    public static void testBangOperator() {
+        List<EvalBoolTestCase> testCases = Arrays.asList(
+                new EvalBoolTestCase("!true", false),
+                new EvalBoolTestCase("!false", true),
+                new EvalBoolTestCase("!5", false),
+                new EvalBoolTestCase("!!true", true),
+                new EvalBoolTestCase("!!false", false),
+                new EvalBoolTestCase("!!5", true)
+        );
+
+        for (EvalBoolTestCase testCase : testCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            if (testMonkeyBoolean(monkeyObject, testCase.expected)) {
+                System.out.println(testCase.input + " = " + testCase.expected + " [Parse]");
+            }
+        }
+    }
+
+    /**
+     * 测试 if-else 表达式的求值结果。
+     * <p>
+     * 包括条件为 true、false，是否进入 else 分支，以及条件表达式为整数时的隐式真值判断。
+     */
+    public static void testIfElseExpression() {
+        List<EvalIfElseTestCase> testCases = Arrays.asList(
+                new EvalIfElseTestCase("if (true) { 10 }", 10),
+                new EvalIfElseTestCase("if (false) { 10 }", null),
+                new EvalIfElseTestCase("if (1) {10}", 10),
+                new EvalIfElseTestCase("if (1 < 2) { 10 }", 10),
+                new EvalIfElseTestCase("if (1 > 2) { 10 }", null),
+                new EvalIfElseTestCase("if (1 > 2) { 10 } else { 20 }", 20),
+                new EvalIfElseTestCase("if (1 < 2) { 10 } else { 20 }", 10)
+        );
+
+        for (EvalIfElseTestCase testCase : testCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            if (testCase.expected instanceof Integer) {
+                if (testMonkeyInteger(monkeyObject, (long)((Integer)(testCase.expected)))) {
+                    System.out.println("[Parse]" + testCase.input + " = " + testCase.expected);
+                }
+            } else {
+                if (testNullObject(monkeyObject)) {
+                    System.out.println("[Parse]" + testCase.input + " = " + testCase.expected);
+                }
+            }
+        }
+    }
+
+    /**
+     * 测试 return 语句的求值结果。
+     * <p>
+     * 验证解释器在函数或语句块中遇到 return 语句时，能否立即返回正确的值。
+     */
+    public static void testReturnStatement() {
+        List<EvalIntTestCase> testCases = Arrays.asList(
+                new EvalIntTestCase("return 10;", 10),
+                new EvalIntTestCase("return 10; 9", 10),
+                new EvalIntTestCase("return 2 * 5; 9;", 10),
+                new EvalIntTestCase("9; return 2 * 5; 9;", 10),
+                new EvalIntTestCase("if (10 > 1) {\n" +
+                        "   if (10 > 1) {\n" +
+                        "       return 10;\n" +
+                        "   }\n" +
+                        "   return 1;\n" +
+                        "}", 10),
+                new EvalIntTestCase("if (1 > 2) {return 5} else " +
+                        "{return 6}", 6)
+        );
+
+        for(EvalIntTestCase testCase : testCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            if (testMonkeyInteger(monkeyObject, testCase.expected)) {
+                System.out.println("[Parse]" + testCase.input + " = " + testCase.expected);
+            }
+        }
+    }
+
+    /**
+     * 测试错误处理机制。
+     * <p>
+     * 包括：
+     * <ul>
+     *     <li>类型不匹配错误（如整数与布尔值相加）</li>
+     *     <li>未知操作符错误</li>
+     *     <li>未定义标识符错误</li>
+     * </ul>
+     */
+    public static void testErrorHandling() {
+        List<EvalErrorTestCase> testCases = Arrays.asList(
+                new EvalErrorTestCase("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+                new EvalErrorTestCase("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+                new EvalErrorTestCase("-true", "unknown operator: -BOOLEAN"),
+                new EvalErrorTestCase("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+                new EvalErrorTestCase("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+                new EvalErrorTestCase("if (10 > 1) { true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
+                new EvalErrorTestCase("if (10 > 1) { return true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
+                new EvalErrorTestCase("foobar", "identifier not found: foobar")
+        );
+
+        for (EvalErrorTestCase testCase : testCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+
+            if (!(monkeyObject instanceof MonkeyError)) {
+                System.err.println("no error object returned. got=" + monkeyObject.type());
+                continue;
+            }
+
+            MonkeyError monkeyError = (MonkeyError)monkeyObject;
+
+            if (!monkeyError.getMessage().equals(testCase.expectedMessage)) {
+                System.err.println("wrong error message. expected=" +
+                        testCase.expectedMessage + ", got=" + monkeyError.getMessage());
+            } else {
+                System.out.println("[Parse]" + testCase.input + " = " + testCase.expectedMessage);
+            }
+
+        }
+    }
+
+    /**
+     * 测试 let 语句的执行结果。
+     * <p>
+     * 验证解释器是否能够正确地进行变量声明与赋值，并在后续表达式中正确引用。
+     */
+    public static void testLetStatement() {
+        List<EvalIntTestCase> testCases = Arrays.asList(
+                new EvalIntTestCase("let a = 5; a;", 5),
+                new EvalIntTestCase("let a = 5 * 5; a;", 25),
+                new EvalIntTestCase("let a = 5; let b = a; b;", 5),
+                new EvalIntTestCase("let a = 5; let b = a; let c = a + b + 5; c;", 15)
+        );
+
+        for (EvalIntTestCase testCase : testCases) {
+            if (testMonkeyInteger(testEval(testCase.input), testCase.expected)) {
+                System.out.println("[Parse]" + testCase.input + " = " + testCase.expected);
+            }
+        }
+    }
+
+    /**
      * 将输入的表达式字符串进行词法分析、语法分析，然后交给求值器执行。
      *
      * @param input Monkey 源代码字符串
@@ -181,6 +347,24 @@ public class EvaluatorTest {
         return true;
     }
 
+    /**
+     * 验证求值结果是否为 Null 对象。
+     * <p>
+     * 在 Monkey 语言中，条件不满足或 if-else 没有返回值时，
+     * 解释器会返回一个单例 {@link MonkeyNull#NULL} 对象。
+     * 本方法用于检查结果对象是否等于该单例。
+     *
+     * @param obj 求值结果对象
+     * @return 如果对象为 MonkeyNull.NULL 返回 true，否则打印错误信息并返回 false
+     */
+    public static boolean testNullObject(MonkeyObject obj) {
+        if (obj != MonkeyNull.NULL) {
+            System.err.println("object is not NULL. got=" + obj.type());
+            return false;
+        }
+        return true;
+    }
+
 }
 
 /**
@@ -212,5 +396,37 @@ class EvalBoolTestCase {
     public EvalBoolTestCase(String input, boolean expected) {
         this.input = input;
         this.expected = expected;
+    }
+}
+
+/**
+ * 用于描述 if-else 表达式测试用例的数据类。
+ * <p>
+ * 输入为一段 Monkey 语言 if-else 语句，
+ * 期望值可以是整数（进入分支时返回的值）或 null（不进入任何分支）。
+ */
+class EvalIfElseTestCase {
+    public String input;
+    public Object expected;
+
+    public EvalIfElseTestCase(String input, Object expected) {
+        this.input = input;
+        this.expected = expected;
+    }
+}
+
+/**
+ * 用于描述错误处理测试用例的数据类。
+ * <p>
+ * 输入为一段可能触发错误的 Monkey 代码，
+ * 期望结果是解释器返回的错误消息字符串。
+ */
+class EvalErrorTestCase {
+    public String input;
+    public String expectedMessage;
+
+    public EvalErrorTestCase(String input, String expectedMessage) {
+        this.input = input;
+        this.expectedMessage = expectedMessage;
     }
 }

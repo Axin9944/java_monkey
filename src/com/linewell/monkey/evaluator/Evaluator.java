@@ -263,10 +263,12 @@ public class Evaluator {
             return nativeBoolToMonkeyBoolean(!left.equals(right));
         } else if (left.type() != right.type()) {
             // 类型不一致时报错，例如 true + 5
-            return newError("type mismatch: " + left.type() + operator + right.type());
+            return newError("type mismatch: " + left.type() + " " +
+                    operator + " " + right.type());
         } else {
             // 其他情况一律视为未知运算符
-            return newError("unknown operator: " + left.type() + operator + right.type());
+            return newError("unknown operator: " + left.type() + " " +
+                    operator + " " + right.type());
         }
     }
 
@@ -304,7 +306,8 @@ public class Evaluator {
             case "!=" :
                 return nativeBoolToMonkeyBoolean(leftValue != rightValue);
             default:
-                return newError("unknown operator: " + left.type() + operator + right.type());
+                return newError("unknown operator: " + left.type() + " "
+                        + operator + " " + right.type());
         }
     }
 

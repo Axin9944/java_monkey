@@ -1,7 +1,10 @@
 package com.linewell.monkey.repl;
 
 import com.linewell.monkey.ast.imp.Program;
+import com.linewell.monkey.evaluator.Evaluator;
 import com.linewell.monkey.lexer.Lexer;
+import com.linewell.monkey.object.Environment;
+import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.parser.Parser;
 
 import java.io.*;
@@ -15,12 +18,14 @@ import java.util.Scanner;
  * <ul>
  *     <li>启动 REPL，读取用户输入</li>
  *     <li>使用 Lexer 和 Parser 解析输入的 Monkey 语言代码</li>
- *     <li>打印解析结果或语法错误信息</li>
+ *     <li>调用 {@link Evaluator} 对 AST 求值</li>
+ *     <li>将求值结果输出到指定的 Writer</li>
+ *     <li>在遇到语法错误时打印 {@link #MONKEY_FACE} 和错误信息</li>
  * </ul>
  *
  * <p>示例：
  * <pre>
- * REPL.start(); // 启动标准输入输出 REPL
+ * REPL.start(System.in, System.out); // 启动标准输入输出 REPL
  * </pre>
  */
 public class REPL {
@@ -44,14 +49,16 @@ public class REPL {
     /**
      * 启动交互式解释器（REPL）。
      *
-     * <p>读取 {@code in} 输入流，解析输入并输出到 {@code out}。
-     * 支持连续输入多行代码，遇到语法错误会打印 MONKEY_FACE 和错误信息。
+     * <p>该方法会不断读取用户输入，将其交给词法分析器（Lexer）和语法分析器（Parser），
+     * 生成抽象语法树（AST），再调用 {@link Evaluator#eval} 对 AST 求值。
+     * <p>求值结果会立即输出；若存在语法错误，则输出错误提示和 {@link #MONKEY_FACE}。
      *
      * @param in  输入流，例如 {@code System.in}
      * @param out 输出流，例如 {@code System.out}
      */
     public static void start(Reader in, Writer out) {
         Scanner scanner = new Scanner(new BufferedReader(in));
+        Environment env = new Environment();
 
         try {
             while (true) {
@@ -78,7 +85,12 @@ public class REPL {
                     continue;
                 }
 
-                System.out.println(program.toString());
+                MonkeyObject eval = Evaluator.eval(program, env);
+
+                if (eval != null) {
+                    System.out.println(eval.inspect());
+                }
+
 
                 /*// 分词并输出
                 Token tok;

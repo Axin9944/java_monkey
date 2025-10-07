@@ -32,6 +32,8 @@ public enum ObjectType {
      */
     RETURN_VALUE_OBJ("RETURN_VALUE"),
 
+    FUNCTION_OBJ("FUNCTION"),
+
     /**
      * 错误对象。
      * <p>用于表示运行时错误，如运算符类型不匹配、未定义的标识符等。</p>

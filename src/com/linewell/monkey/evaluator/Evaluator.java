@@ -9,19 +9,31 @@ import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
 import com.linewell.monkey.object.imp.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 /**
  * 解释器核心类，负责对 AST 节点进行求值 (evaluation)，
- * 包含各种表达式与语句的执行逻辑。
- * <p>
- * 主要功能包括：
+ * 包含表达式、语句及函数调用等的执行逻辑。
+ *
+ * <p>支持的语言特性包括：</p>
  * <ul>
- *     <li>顺序执行语句列表</li>
- *     <li>处理前缀、后缀运算符</li>
- *     <li>执行 if 表达式</li>
- *     <li>处理整数运算、布尔运算、错误处理等</li>
+ *     <li>整数与布尔字面量</li>
+ *     <li>算术运算与比较运算</li>
+ *     <li>逻辑前缀表达式（!、-）</li>
+ *     <li>if 表达式</li>
+ *     <li>let 变量声明与赋值</li>
+ *     <li>函数定义（fn）与函数调用</li>
+ *     <li>闭包（函数携带其定义时的外层环境）</li>
+ *     <li>return 控制流</li>
+ *     <li>错误传播机制</li>
  * </ul>
+ *
+ * <p>求值过程以 {@link #eval(Node, Environment)} 为入口，
+ * 根据 AST 节点类型进行分派处理。</p>
+ *
+ * @author axin
  */
 public class Evaluator {
 
@@ -40,17 +52,19 @@ public class Evaluator {
      * 本方法是求值器的核心入口，根据节点的类型不同，分发到对应的处理逻辑。
      * 支持的节点类型包括：
      * <ul>
-     *     <li>Program（程序根节点）</li>
-     *     <li>ExpressionStatement（表达式语句）</li>
-     *     <li>IntegerLiteral（整数字面量）</li>
-     *     <li>BooleanType（布尔字面量）</li>
-     *     <li>PrefixExpression（前缀表达式）</li>
-     *     <li>InfixExpression（中缀表达式）</li>
-     *     <li>BlockStatement（语句块）</li>
-     *     <li>IfExpression（if 表达式）</li>
-     *     <li>ReturnStatement（return 语句）</li>
-     *     <li>LetStatement（let 语句）</li>
-     *     <li>Identifier（标识符）</li>
+     *     <li>{@link Program}：（程序根节点）</li>
+     *     <li>{@link ExpressionStatement}：（表达式语句）</li>
+     *     <li>{@link IntegerLiteral}：（整数字面量）</li>
+     *     <li>{@link BooleanType}：（布尔字面量）</li>
+     *     <li>{@link PrefixExpression}：（前缀表达式）</li>
+     *     <li>{@link InfixExpression}：（中缀表达式）</li>
+     *     <li>{@link BlockStatement}（语句块）</li>
+     *     <li>{@link IfExpression}：（if 表达式）</li>
+     *     <li>{@link ReturnStatement}：（return 语句）</li>
+     *     <li>{@link LetStatement}：（let 语句）</li>
+     *     <li>{@link Identifier}：（标识符）</li>
+     *     <li>{@link FunctionLiteral}：函数定义（fn）</li>
+     *     <li>{@link CallExpression}：函数调用（fn(...)）</li>
      * </ul>
      *
      * @param node AST 节点
@@ -143,6 +157,34 @@ public class Evaluator {
         // 标识符（变量或函数名）
         if (node instanceof Identifier) {
             return evalIdentifier((Identifier) node, env);
+        }
+
+        // 函数定义表达式（FunctionLiteral）
+        // 例如：fn(x, y) { x + y }
+        // 求值时不会立即执行函数体，而是创建一个函数对象（闭包），
+        // 将参数列表、函数体和当前环境一起封装成 MonkeyFunction 返回。
+        if (node instanceof FunctionLiteral) {
+            FunctionLiteral function = (FunctionLiteral) node;
+            BlockStatement body = function.getBody();
+            List<Identifier> parameters = function.getParameters();
+            return new MonkeyFunction(parameters, body, env);
+        }
+
+        // 函数调用表达式（CallExpression）
+        // 例如：add(2, 3)
+        // 先对函数部分（add）求值，得到对应的函数对象；
+        // 再对参数列表求值，然后调用 applyFunction 执行函数体。
+        if (node instanceof CallExpression) {
+            CallExpression call = (CallExpression) node;
+            MonkeyObject eval = eval(call.getFunction(), env);
+            if (isError(eval)) {
+                return eval;
+            }
+            List<MonkeyObject> args = evalExpression(call.getArguments(), env);
+            if (args.size() == 1 && isError(args.get(0))) {
+                return args.get(0);
+            }
+            return applyFunction(eval, args);
         }
 
         // 未处理的情况，返回 null（表示不支持该节点）
@@ -450,6 +492,124 @@ public class Evaluator {
         }
 
         return result;
+    }
+
+    /**
+     * 在指定环境中对参数列表进行求值。
+     * <p>
+     * 逐个对表达式求值，并将结果放入列表中。
+     * 若其中任意表达式求值出错（返回 {@link MonkeyError}），
+     * 则立即返回仅包含错误的列表。
+     * </p>
+     *
+     * @param exps 参数表达式列表
+     * @param env  当前执行环境
+     * @return 参数求值结果列表（可能包含一个错误对象）
+     */
+    private static List<MonkeyObject> evalExpression(List<Expression> exps, Environment env) {
+        List<MonkeyObject> result = new ArrayList<>();
+
+        for (Expression exp : exps) {
+            MonkeyObject eval = eval(exp, env);
+            if (isError(eval)) {
+                result.add(eval);
+                return result;
+            }
+            result.add(eval);
+        }
+
+        return result;
+    }
+
+    /**
+     * 创建一个新的函数调用环境。
+     * <p>
+     * 用于实现闭包与函数参数绑定：
+     * <ul>
+     *     <li>新建一个空的环境，其外层指向函数定义时的环境（闭包）</li>
+     *     <li>将函数形参与实参一一绑定到新环境中</li>
+     * </ul>
+     *
+     * 例如：
+     * <pre>
+     * fn add(x, y) { x + y };
+     * add(1, 2);
+     * </pre>
+     * 调用时会生成一个局部环境：
+     * <ul>
+     *     <li>x → 1</li>
+     *     <li>y → 2</li>
+     * </ul>
+     *
+     * @param fn   被调用的函数对象
+     * @param args 实参求值结果
+     * @return 新建的局部环境，外层指向函数定义时环境
+     */
+    private static Environment extendFunctionEnv(MonkeyFunction fn,
+                                                 List<MonkeyObject> args) {
+        Environment env = new Environment(new HashMap<>(), fn.getEnv());
+
+        List<Identifier> parameters = fn.getParameters();
+
+        for (int i = 0; i < fn.getParameters().size(); i++) {
+            env.set(parameters.get(i).getValue(), args.get(i));
+        }
+
+        return env;
+    }
+
+    /**
+     * 对函数返回结果进行解包。
+     * <p>
+     * 若返回对象为 {@link MonkeyReturn}，
+     * 则取出其内部值并返回；
+     * 否则原样返回（用于普通表达式的结果传递）。
+     * </p>
+     *
+     * @param obj 待处理对象
+     * @return 真正的返回值对象
+     */
+    private static MonkeyObject unwrapReturnValue(MonkeyObject obj) {
+        if (obj instanceof MonkeyReturn) {
+            MonkeyReturn ret = (MonkeyReturn) obj;
+            return ret.getValue();
+        }
+
+        return obj;
+    }
+
+    /**
+     * 对函数调用表达式进行求值。
+     * <p>
+     * 步骤：
+     * <ol>
+     *     <li>先对函数部分（左侧）求值，得到 {@link MonkeyFunction}</li>
+     *     <li>再对实参列表求值，得到 {@code List<MonkeyObject>}</li>
+     *     <li>调用 {@link #applyFunction(MonkeyObject, List)} 实现函数调用逻辑</li>
+     * </ol>
+     * </p>
+     *
+     * @param obj  被调用的函数对象
+     * @param args 实参求值结果列表
+     * @return 函数返回值或错误对象
+     */
+    private static MonkeyObject applyFunction(MonkeyObject obj,
+                                              List<MonkeyObject> args) {
+        if (!(obj instanceof MonkeyFunction)) {
+            return newError("not a function: " + obj.getClass()
+                    .getSimpleName());
+        }
+
+        MonkeyFunction fn = (MonkeyFunction) obj;
+
+        if (fn.getParameters().size() != args.size()) {
+            return newError("wrong number of arguments: expected=" + fn.getParameters().size()
+                            + ", got=" + args.size());
+        }
+
+        Environment env = extendFunctionEnv(fn, args);
+        MonkeyObject eval = eval(fn.getBody(), env);
+        return unwrapReturnValue(eval);
     }
 
     /**

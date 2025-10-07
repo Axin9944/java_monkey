@@ -1,13 +1,11 @@
 package com.linewell.monkey.evaluator;
 
+import com.linewell.monkey.ast.imp.Identifier;
 import com.linewell.monkey.ast.imp.Program;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.object.Environment;
 import com.linewell.monkey.object.MonkeyObject;
-import com.linewell.monkey.object.imp.MonkeyBoolean;
-import com.linewell.monkey.object.imp.MonkeyError;
-import com.linewell.monkey.object.imp.MonkeyInteger;
-import com.linewell.monkey.object.imp.MonkeyNull;
+import com.linewell.monkey.object.imp.*;
 import com.linewell.monkey.parser.Parser;
 
 import java.util.Arrays;
@@ -26,10 +24,15 @@ import java.util.List;
  *     <li>返回语句（return）</li>
  *     <li>错误处理（类型错误、未定义标识符等）</li>
  *     <li>变量绑定（let 语句）</li>
+ *     <li>函数定义与函数对象测试（{@link #testFunctionObject()}）</li>
+ *     <li>函数调用与参数传递测试（{@link #testFunctionApplication()}）</li>
+ *     <li>闭包（Closure）测试（{@link #testClosures()}）</li>
  * </ul>
  * <p>
  * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
  * 构造出 AST，再交由解释器执行，并将结果与预期值对比。
+ *
+ * @author axin
  */
 public class EvaluatorTest {
 
@@ -54,6 +57,15 @@ public class EvaluatorTest {
 
         // 执行 let 语句测试
         testLetStatement();
+
+        // 执行函数对象解析测试
+        testFunctionObject();
+
+        // 执行函数调用测试
+        testFunctionApplication();
+
+        // 执行闭包测试
+        testClosures();
     }
 
     /**
@@ -273,6 +285,137 @@ public class EvaluatorTest {
             if (testMonkeyInteger(testEval(testCase.input), testCase.expected)) {
                 System.out.println("[Parse]" + testCase.input + " = " + testCase.expected);
             }
+        }
+    }
+
+    /**
+     * 测试函数对象（Function Object）的解析与构造。
+     *
+     * <p>该测试验证解释器是否能够正确识别并解析函数定义表达式，
+     * 包括参数列表和函数体的内容。例如：</p>
+     *
+     * <pre>
+     * fn(x) { x + 2 };
+     * </pre>
+     *
+     * <p>期望结果：</p>
+     * <ul>
+     *   <li>生成的对象类型应为 {@link MonkeyFunction}</li>
+     *   <li>函数参数应为单个标识符 “x”</li>
+     *   <li>函数体应为表达式 “(x + 2)”</li>
+     * </ul>
+     */
+    public static void testFunctionObject() {
+        String input = "fn(x) { x + 2 };";
+
+        // 对函数定义表达式求值
+        MonkeyObject monkeyObject = testEval(input);
+        if (!(monkeyObject instanceof MonkeyFunction)) {
+            System.err.println("object is not Function. got=" + monkeyObject.getClass()
+                    .getSimpleName());
+            return;
+        }
+
+        MonkeyFunction fun = (MonkeyFunction)monkeyObject;
+
+        // 验证参数数量是否正确
+        List<Identifier> parameters = fun.getParameters();
+        if (parameters.size() != 1) {
+            System.err.println("function has wrong parameters. Parameters=" +
+                    parameters.toString());
+            return;
+        }
+
+        // 验证参数名是否为 x
+        if(!parameters.get(0).toString().equals("x")) {
+            System.err.println("parameter is not x. got=" + parameters.get(0).toString());
+            return;
+        }
+
+        // 验证函数体内容
+        String expectedBody = "(x + 2)";
+
+        if (!fun.getBody().toString().equals(expectedBody)) {
+            System.err.println("body is not " + expectedBody + "got=" +
+                    fun.getBody().toString());
+            return;
+        }
+
+        System.out.println("[Parse]" + fun.getBody().toString());
+    }
+
+    /**
+     * 测试函数调用（Function Application）的求值逻辑。
+     *
+     * <p>本测试验证解释器是否能够正确处理函数调用、参数传递与返回值，
+     * 包括匿名函数直接调用、嵌套调用与参数运算。例如：</p>
+     *
+     * <pre>
+     * let add = fn(x, y) { x + y; };
+     * add(5 + 5, add(5, 5)); // 期望输出 20
+     * </pre>
+     *
+     * <p>测试覆盖：</p>
+     * <ul>
+     *     <li>函数变量的定义与调用</li>
+     *     <li>return 语句在函数中的执行</li>
+     *     <li>多参数函数</li>
+     *     <li>匿名函数直接调用</li>
+     * </ul>
+     */
+    public static void testFunctionApplication() {
+        List<EvalIntTestCase> testCases = Arrays.asList(
+                new EvalIntTestCase("let identity = fn(x) { x; }; " +
+                        "identity(5);", 5),
+                new EvalIntTestCase("let identity = fn(x) { return x; }; " +
+                        "identity(5);", 5),
+                new EvalIntTestCase("let double = fn(x) { return x * 2; }; " +
+                        "double(5);", 10),
+                new EvalIntTestCase("let add = fn(x, y) { x + y; }; " +
+                        "add(5, 5);", 10),
+                new EvalIntTestCase("let add = fn(x, y) { x + y; }; " +
+                        "add(5 + 5, add(5, 5));", 20),
+                new EvalIntTestCase("fn (x) { x; }(5)", 5)
+        );
+
+        for (EvalIntTestCase testCase : testCases) {
+            if(testMonkeyInteger(testEval(testCase.input), testCase.expected)) {
+                System.out.println("[Parse]" + testCase.input + " = " + testCase.expected);
+            }
+        }
+    }
+
+    /**
+     * 测试闭包（Closure）的求值逻辑。
+     *
+     * <p>闭包是函数求值中的关键特性。本测试验证解释器能否正确捕获
+     * 外层函数的局部变量，并在返回的内部函数中使用该变量。</p>
+     *
+     * <p>示例：</p>
+     * <pre>
+     * let newAdder = fn(x) {
+     *     fn(y) { x + y };
+     * };
+     * let addTwo = newAdder(2);
+     * addTwo(2); // 期望结果 4
+     * </pre>
+     *
+     * <p>验证内容：</p>
+     * <ul>
+     *   <li>外层函数执行后返回的内部函数能访问其词法作用域变量</li>
+     *   <li>解释器正确处理嵌套环境（Environment）</li>
+     * </ul>
+     */
+    public static void testClosures() {
+        String input = "let newAdder = fn(x) {\n" +
+                        "   fn(y) { x + y };\n" +
+                "};\n" +
+                "\n" +
+                "let addTwo = newAdder(2);\n" +
+                "addTwo(2);";
+
+        if (testMonkeyInteger(testEval(input), 4)) {
+            System.out.println("[Parse]" + input + " = " + 4);
         }
     }
 

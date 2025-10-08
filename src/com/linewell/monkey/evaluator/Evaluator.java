@@ -28,6 +28,7 @@ import java.util.List;
  *     <li>闭包（函数携带其定义时的外层环境）</li>
  *     <li>return 控制流</li>
  *     <li>错误传播机制</li>
+ *     <li>字符串类型</li>
  * </ul>
  *
  * <p>求值过程以 {@link #eval(Node, Environment)} 为入口，
@@ -65,6 +66,7 @@ public class Evaluator {
      *     <li>{@link Identifier}：（标识符）</li>
      *     <li>{@link FunctionLiteral}：函数定义（fn）</li>
      *     <li>{@link CallExpression}：函数调用（fn(...)）</li>
+     *     <li>{@link StringLiteral}：字符串类型</li>
      * </ul>
      *
      * @param node AST 节点
@@ -187,6 +189,12 @@ public class Evaluator {
             return applyFunction(eval, args);
         }
 
+        // 字符串字面量 (StringLiteral)
+        // 例如 \"Hello World\"
+        if (node instanceof StringLiteral) {
+            return new MonkeyString(((StringLiteral) node).getValue());
+        }
+
         // 未处理的情况，返回 null（表示不支持该节点）
         return null;
     }
@@ -307,6 +315,10 @@ public class Evaluator {
             // 类型不一致时报错，例如 true + 5
             return newError("type mismatch: " + left.type() + " " +
                     operator + " " + right.type());
+        } else if((left.type() == ObjectType.STRING_OBJ) &&
+                (right.type() == ObjectType.STRING_OBJ)) {
+            // 两边都是字符串，进入字符串拼接分支
+            return evalStringInfixExpression(operator, left, right);
         } else {
             // 其他情况一律视为未知运算符
             return newError("unknown operator: " + left.type() + " " +
@@ -610,6 +622,66 @@ public class Evaluator {
         Environment env = extendFunctionEnv(fn, args);
         MonkeyObject eval = eval(fn.getBody(), env);
         return unwrapReturnValue(eval);
+    }
+
+    /**
+     * 计算字符串类型（{@link com.linewell.monkey.object.imp.MonkeyString}）的中缀表达式。
+     * <p>
+     * 该方法用于求值阶段处理字符串之间的中缀运算（目前仅支持字符串拼接 {@code +}）。
+     * 当左右操作数均为 {@code MonkeyString} 类型时，
+     * 返回一个新的 {@code MonkeyString}，其值为两者拼接结果。
+     * </p>
+     *
+     * <p><b>语义说明：</b></p>
+     * <ul>
+     *   <li>当操作符为 {@code +} 且左右操作数均为字符串时，执行字符串拼接。</li>
+     *   <li>当操作符不是 {@code +} 时，返回错误对象（不支持的操作）。</li>
+     *   <li>当任一操作数不是 {@code MonkeyString} 类型时，返回错误对象。</li>
+     * </ul>
+     *
+     * <p><b>错误处理：</b></p>
+     * <ul>
+     *   <li>若操作符不为 {@code +}，返回：{@code "unknown operator: STRING <op> STRING"}。</li>
+     *   <li>若左或右操作数类型错误，返回相应错误信息。</li>
+     * </ul>
+     *
+     * <p><b>示例：</b></p>
+     * <pre>
+     * evalStringInfixExpression("+",
+     *     new MonkeyString("Hello "),
+     *     new MonkeyString("World"));
+     * // => MonkeyString("Hello World")
+     *
+     * evalStringInfixExpression("*",
+     *     new MonkeyString("Hello"), new MonkeyString("World"));
+     * // => Error("unknown operator: STRING * STRING")
+     * </pre>
+     *
+     * @param operator 中缀运算符（目前仅支持 {@code +}）
+     * @param left     左操作数对象（期望类型为 {@link com.linewell.monkey.object.imp.MonkeyString}）
+     * @param right    右操作数对象（期望类型为 {@link com.linewell.monkey.object.imp.MonkeyString}）
+     * @return 字符串拼接结果（{@code MonkeyString}）或错误对象（{@code MonkeyError}）
+     */
+    private static MonkeyObject evalStringInfixExpression(String operator,
+                                                          MonkeyObject left,
+                                                          MonkeyObject right) {
+        if (!operator.equals("+")) {
+            return newError("unknown operator: " + left.type() + " " +
+                    operator + " " + right.type());
+        }
+
+        if (!(left instanceof MonkeyString)) {
+            return newError("left is not MonkeyString.");
+        }
+
+        if (!(right instanceof MonkeyString)) {
+            return newError("right is not MonkeyString.");
+        }
+
+        MonkeyString leftObj = (MonkeyString) left;
+        MonkeyString rightObj = (MonkeyString) right;
+
+        return new MonkeyString(leftObj.getValue() + rightObj.getValue());
     }
 
     /**

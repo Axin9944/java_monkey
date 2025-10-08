@@ -66,6 +66,12 @@ public class EvaluatorTest {
 
         // 执行闭包测试
         testClosures();
+
+        // 执行解析字符串对象测试
+        testStringLiteral();
+
+        // 执行字符串拼接测试
+        testStringConcatenation();
     }
 
     /**
@@ -245,7 +251,8 @@ public class EvaluatorTest {
                 new EvalErrorTestCase("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
                 new EvalErrorTestCase("if (10 > 1) { true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
                 new EvalErrorTestCase("if (10 > 1) { return true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
-                new EvalErrorTestCase("foobar", "identifier not found: foobar")
+                new EvalErrorTestCase("foobar", "identifier not found: foobar"),
+                new EvalErrorTestCase("\"Hello\" - \"World\"", "unknown operator: STRING - STRING")
         );
 
         for (EvalErrorTestCase testCase : testCases) {
@@ -417,6 +424,92 @@ public class EvaluatorTest {
         if (testMonkeyInteger(testEval(input), 4)) {
             System.out.println("[Parse]" + input + " = " + 4);
         }
+    }
+
+    /**
+     * 测试字符串字面量（{@code StringLiteral}）在解释执行阶段的求值结果。
+     * <p>
+     * 本测试验证 Monkey 解释器能否正确将字符串字面量表达式（例如 {@code "Hello World!"}）
+     * 解析并求值为对应的 {@link com.linewell.monkey.object.imp.MonkeyString} 对象。
+     * </p>
+     *
+     * <h3>测试流程：</h3>
+     * <ol>
+     *   <li>输入源码：{@code "Hello World!"}</li>
+     *   <li>调用 {@code testEval()} 方法执行完整的词法分析 → 语法解析 → 求值流程。</li>
+     *   <li>验证返回结果类型为 {@link com.linewell.monkey.object.imp.MonkeyString}。</li>
+     *   <li>检查字符串内容是否与期望值一致。</li>
+     * </ol>
+     *
+     * <h3>预期结果：</h3>
+     * <ul>
+     *   <li>求值结果类型为 {@code MonkeyString}。</li>
+     *   <li>其 {@code value} 属性为 {@code "Hello World!"}。</li>
+     *   <li>控制台输出：{@code [Parse]===> Hello World!}</li>
+     * </ul>
+     *
+     * 若类型或内容不匹配，将输出错误信息到标准错误流。
+     */
+    private static void testStringLiteral() {
+        String input = "\"Hello Wrold!\"";
+
+        MonkeyObject evaluted = testEval(input);
+        if (!(evaluted instanceof MonkeyString)) {
+            System.err.println("object is not MonkeyString. got=" +
+                    evaluted.getClass().getSimpleName());
+            return;
+        }
+        MonkeyString monkeyString = (MonkeyString)evaluted;
+
+        if (!monkeyString.getValue().equals("Hello Wrold!")) {
+            System.err.println("String has wrong value. got=" +
+                    monkeyString.getValue());
+            return;
+        }
+        System.out.println("[Parse]===> " + monkeyString.getValue());
+    }
+
+    /**
+     * 测试字符串拼接表达式在求值阶段的执行结果。
+     * <p>
+     * 本测试验证 Monkey 解释器能否正确执行字符串的中缀拼接运算（{@code +}），
+     * 并生成新的 {@link com.linewell.monkey.object.imp.MonkeyString} 对象。
+     * </p>
+     *
+     * <h3>测试流程：</h3>
+     * <ol>
+     *   <li>输入源码：{@code "Hello" + " " + "World!"}</li>
+     *   <li>通过 {@code testEval()} 方法执行完整求值流程。</li>
+     *   <li>验证结果类型为 {@link com.linewell.monkey.object.imp.MonkeyString}。</li>
+     *   <li>检查拼接结果是否为 {@code "Hello World!"}。</li>
+     * </ol>
+     *
+     * <h3>预期结果：</h3>
+     * <ul>
+     *   <li>解释器正确执行字符串拼接逻辑。</li>
+     *   <li>求值结果为新的 {@code MonkeyString("Hello World!")}</li>
+     *   <li>控制台输出：{@code [Parse]===> Hello World!}</li>
+     * </ul>
+     *
+     * 若结果类型或内容错误，将输出详细错误信息以便调试。
+     */
+    private static void testStringConcatenation() {
+        String input = "\"Hello\" + \" \" + \"World!\"";
+
+        MonkeyObject evaluated = testEval(input);
+        if(!(evaluated instanceof MonkeyString)) {
+            System.err.println("object is not MonkeyString. got=" +
+                    evaluated.getClass().getSimpleName());
+            return;
+        }
+
+        MonkeyString str = (MonkeyString)evaluated;
+
+        if (!str.getValue().equals("Hello World!")) {
+            System.err.println("String has wrong value. got=" + str.getValue());
+        }
+
+        System.out.println("[Parse]===> " + str.getValue());
     }
 
     /**

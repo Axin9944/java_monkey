@@ -24,7 +24,9 @@ public class Lexer_Test {
                 "   return false;\n" +
                 "}\n" +
                 "10 == 10;\n" +
-                "10 != 9;\n";
+                "10 != 9;\n" +
+                "\"foobar\"\n" +
+                "\"foo bar\"";
 
         System.out.println(input);
 
@@ -101,6 +103,8 @@ public class Lexer_Test {
                 new TestCase(TokenType.NOT_EQ, "!="),
                 new TestCase(TokenType.INT, "9"),
                 new TestCase(TokenType.SEMICOLON, ";"),
+                new TestCase(TokenType.STRING, "foobar"),
+                new TestCase(TokenType.STRING, "foo bar"),
                 new TestCase(TokenType.EOF, ""),};
 
         Lexer lexer = new Lexer(input);

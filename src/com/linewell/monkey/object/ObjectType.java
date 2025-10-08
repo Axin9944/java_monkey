@@ -16,13 +16,13 @@ package com.linewell.monkey.object;
  */
 public enum ObjectType {
 
-    // 整数类型对象，例如 {@code 1}, {@code 100}
+    /** 整数类型对象，例如 {@code 1}, {@code 100} */
     INTEGER_OBJ("INTEGER"),
 
-    // 布尔类型对象，例如 {@code true}, {@code false}
+    /** 布尔类型对象，例如 {@code true}, {@code false} */
     BOOLEAN_OBJ("BOOLEAN"),
 
-    // 空对象，表示无值（相当于 {@code null}）
+    /** 空对象，表示无值（相当于 {@code null}） */
     NULL_OBJ("NULL"),
 
     /**
@@ -32,7 +32,37 @@ public enum ObjectType {
      */
     RETURN_VALUE_OBJ("RETURN_VALUE"),
 
+    /**
+     * 函数对象。
+     * <p>
+     * 表示用户在 Monkey 语言中定义的函数（例如 {@code fn(x) { x + 2; }})。
+     * 在运行时，函数会被封装为 {@code FUNCTION_OBJ} 类型，
+     * 并携带其参数列表、函数体（语法树）以及定义时的环境（闭包上下文）。
+     * </p>
+     *
+     * <p><b>典型用途：</b></p>
+     * <ul>
+     *   <li>在求值器（Evaluator）中，用于函数定义与函数调用。</li>
+     *   <li>支持闭包（Closure）特性，函数可引用定义时环境中的变量。</li>
+     * </ul>
+     */
     FUNCTION_OBJ("FUNCTION"),
+
+    /**
+     * 字符串对象。
+     * <p>
+     * 表示 Monkey 语言中的字符串字面量（例如 {@code "Hello World"}）。
+     * 该类型对象在解释执行阶段可参与字符串拼接等操作。
+     * </p>
+     *
+     * <p><b>典型用途：</b></p>
+     * <ul>
+     *   <li>在词法分析器中由 {@code TokenType.STRING} 生成。</li>
+     *   <li>在语法树中对应 {@code StringLiteral} 节点。</li>
+     *   <li>在求值器中用于字符串连接（例如 {@code "a" + "b"} → {@code "ab"}）。</li>
+     * </ul>
+     */
+    STRING_OBJ("STRING"),
 
     /**
      * 错误对象。

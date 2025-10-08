@@ -117,6 +117,9 @@ public class Lexer {
             case '}':
                 tok = newToken(TokenType.RBRACE, ch);
                 break;
+            case '"':
+                tok = newToken(TokenType.STRING, readString());
+                break;
             case '\0':  // 对应 Go 的 0
                 tok = new Token(TokenType.EOF, "");
                 break;
@@ -231,5 +234,31 @@ public class Lexer {
             return '\0';
         }
         return input.charAt(readPosition);
+    }
+
+    /**
+     * 读取并返回源代码中的字符串常量（STRING 词法单元）。
+     * <p>
+     * 该方法假定当前读取位置（{@code position}）指向字符串起始引号（`"`）之前的一个字符，
+     * 会在内部移动读取指针，逐字符读取直到遇到下一个引号（`"`) 或文件结尾符（`\0`）。
+     * 最终返回引号之间的字符串内容。
+     * </p>
+     *
+     * <p><b>注意：</b> 该方法不会处理转义字符（例如 `\"`），
+     * 若字符串中包含此类转义序列，需要在调用前或之后额外处理。</p>
+     *
+     * @return 字符串字面量的内容（不包含首尾引号）；若未找到结束引号，则返回至文件末尾的内容。
+     */
+    public String readString() {
+        int pos = position + 1;
+
+        while (true) {
+            readChar();
+            if ((ch == '"') || ch == '\0') {
+                break;
+            }
+        }
+
+        return input.substring(pos, position);
     }
 }

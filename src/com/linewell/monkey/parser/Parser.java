@@ -156,7 +156,10 @@ public class Parser {
         registerPrefix(TokenType.LPAREN, this::parseGroupedExpression);
         // if
         registerPrefix(TokenType.IF, this::parseIfExpression);
+        // fun
         registerPrefix(TokenType.FUNCTION, this::parseFunctionLiteral);
+        // String
+        registerPrefix(TokenType.STRING, this::parseStringLiteral);
 
         // 注册中缀解析函数
         // +
@@ -175,6 +178,7 @@ public class Parser {
         registerInfix(TokenType.LT, this::parseInfixExpression);
         // >
         registerInfix(TokenType.GT, this::parseInfixExpression);
+        // (
         registerInfix(TokenType.LPAREN, this::parseCallExpression);
     }
 
@@ -716,5 +720,32 @@ public class Parser {
         }
 
         return args;
+    }
+
+    /**
+     * 解析字符串字面量（STRING）表达式节点。
+     * <p>
+     * 当语法分析器在读取到一个字符串类型的词法单元（通常对应 {@code TokenType.STRING}）时，
+     * 调用该方法以构建相应的抽象语法树（AST）节点。
+     * </p>
+     *
+     * <p>
+     * 该方法不会尝试进一步解析复杂表达式，而是直接将当前词法单元封装为一个
+     * {@link com.linewell.monkey.ast.imp.StringLiteral} 对象，并返回。
+     * </p>
+     *
+     * <p><b>示例：</b></p>
+     * <pre>
+     * 输入词法单元序列：
+     *   Token(type=STRING, literal="hello world")
+     *
+     * 调用结果：
+     *   new StringLiteral(TokenType.STRING, "hello world")
+     * </pre>
+     *
+     * @return 表示字符串字面量的 {@link com.linewell.monkey.ast.Expression} 节点实例
+     */
+    private Expression parseStringLiteral() {
+        return new StringLiteral(currentToken.getType(), currentToken.getLiteral());
     }
 }

@@ -24,6 +24,7 @@ public class Parser_Test {
         testIfElseExpression();
         testFunctionLiteralExpression();
         testCallExpressionParsing();
+        testStringLiteralExpression();
     }
 
     /**
@@ -837,6 +838,75 @@ public class Parser_Test {
         testLiteralExpression(exp.getArguments().get(0), 1);
         testInfixExpression(exp.getArguments().get(1), 2, "*", 3);
         testInfixExpression(exp.getArguments().get(2), 4, "+", 5);
+    }
+
+    /**
+     * 测试语法解析器对字符串字面量（{@code StringLiteral}）节点的解析功能。
+     * <p>
+     * 本测试用例验证从词法分析（{@link Lexer}）到语法分析（{@link Parser}）的完整流程，
+     * 确保输入的字符串字面量能被正确识别并构造成抽象语法树（AST）中的
+     * {@link com.linewell.monkey.ast.imp.StringLiteral} 节点。
+     * </p>
+     *
+     * <h3>测试步骤：</h3>
+     * <ol>
+     *   <li>构造输入源码 {@code "Hello World"}。</li>
+     *   <li>通过 {@link Lexer} 进行词法分析。</li>
+     *   <li>使用 {@link Parser} 解析生成 {@link com.linewell.monkey.ast.imp.Program}。</li>
+     *   <li>验证解析过程中无语法错误（调用 {@code checkParserErrors}）。</li>
+     *   <li>检查语法树的首个语句是否为 {@link com.linewell.monkey.ast.imp.ExpressionStatement}。</li>
+     *   <li>验证该表达式的类型为 {@link com.linewell.monkey.ast.imp.StringLiteral}。</li>
+     *   <li>检查 {@code literal.getValue()} 的值是否等于 {@code "Hello World"}。</li>
+     * </ol>
+     *
+     * <h3>期望结果：</h3>
+     * <ul>
+     *   <li>程序能正确识别字符串字面量。</li>
+     *   <li>生成的 AST 节点类型为 {@code StringLiteral}。</li>
+     *   <li>节点的 {@code value} 属性值为 {@code Hello World}（不包含引号）。</li>
+     * </ul>
+     *
+     * 若解析结果不符合预期，方法将输出错误信息至标准错误流；
+     * 否则输出成功解析的字符串值到标准输出。
+     *
+     * <p><b>示例输出：</b></p>
+     * <pre>
+     * [Parse]literal.Value=Hello World
+     * </pre>
+     */
+    public static void testStringLiteralExpression() {
+        String input = "\"Hello World\"";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        Statement statement = program.getStatements().get(0);
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("statement is not ExpressionStatement. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+
+        Expression expression = stmt.getExpression();
+
+        if (!(expression instanceof StringLiteral)) {
+            System.err.println("expression not StringLiteral. got=" +
+                    expression.getClass().getSimpleName());
+            return;
+        }
+        StringLiteral literal = (StringLiteral) expression;
+
+        if (!literal.getValue().equals("Hello World")) {
+            System.err.println("literal.Value not " + input +
+                    "got=" + literal.getValue());
+            return;
+        }
+
+        System.out.println("[Parse]" + "literal.Value=" + literal.getValue());
     }
 
     /**

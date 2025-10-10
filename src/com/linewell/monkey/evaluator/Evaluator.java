@@ -12,6 +12,7 @@ import com.linewell.monkey.object.imp.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 解释器核心类，负责对 AST 节点进行求值 (evaluation)，
@@ -29,6 +30,7 @@ import java.util.List;
  *     <li>return 控制流</li>
  *     <li>错误传播机制</li>
  *     <li>字符串类型</li>
+ *     <li>内置函数（Built-in Functions，例如 len 等常用函数）</li>
  * </ul>
  *
  * <p>求值过程以 {@link #eval(Node, Environment)} 为入口，
@@ -46,6 +48,8 @@ public class Evaluator {
 
     /** 全局共享的空对象 */
     private static final MonkeyNull NULL = MonkeyNull.NULL;
+
+    private static final Map<String, MonkeyBuiltin> BUILTINS = MonkeyBuiltin.getBUILTINS();
 
     /**
      * 对给定的 AST 节点在指定环境中进行求值。
@@ -65,7 +69,7 @@ public class Evaluator {
      *     <li>{@link LetStatement}：（let 语句）</li>
      *     <li>{@link Identifier}：（标识符）</li>
      *     <li>{@link FunctionLiteral}：函数定义（fn）</li>
-     *     <li>{@link CallExpression}：函数调用（fn(...)）</li>
+     *     <li>{@link CallExpression}：（函数调用，包括用户自定义函数与内置函数调用）</li>
      *     <li>{@link StringLiteral}：字符串类型</li>
      * </ul>
      *
@@ -427,22 +431,42 @@ public class Evaluator {
     }
 
     /**
-     * 在指定环境中对标识符节点进行求值。
+     * 在指定环境中对标识符（Identifier）节点进行求值。
      * <p>
-     * 方法会从环境中查找该标识符对应的值。
-     * 如果标识符未定义，则返回一个错误对象。
+     * 该方法首先从当前 {@link Environment} 中查找标识符对应的变量绑定；
+     * 若未找到，再尝试在全局内置函数表（{@code BUILTINS}）中查找。
+     * 若仍未找到匹配项，则返回一个错误对象。
+     * </p>
      *
-     * @param node 标识符 AST 节点
-     * @param env  当前的环境，包含变量绑定信息
-     * @return 标识符对应的值，如果未找到则返回错误对象
+     * <p>
+     * 查找顺序如下：
+     * <ol>
+     *     <li>在当前环境中查找变量（用户定义的变量或函数）。</li>
+     *     <li>在全局内置函数表中查找对应的内置函数（如 {@code len}）。</li>
+     *     <li>若两者皆不存在，返回错误对象。</li>
+     * </ol>
+     * </p>
+     *
+     * @param node 标识符 AST 节点，表示要求值的变量名或函数名
+     * @param env  当前求值环境，包含变量与函数的绑定信息
+     * @return 对应的 {@link MonkeyObject}，可能是变量值、内置函数对象或错误对象
      */
     private static MonkeyObject evalIdentifier(Identifier node, Environment env) {
+
+        // 1、先查变量
         MonkeyObject monkeyObject = env.get(node.getValue());
-        if (monkeyObject == null) {
-            return newError("identifier not found: " + node.getValue());
+        if (monkeyObject != null) {
+            return monkeyObject;
         }
 
-        return monkeyObject;
+        // 2、 后查内置函数
+        MonkeyBuiltin monkeyBuiltin = BUILTINS.get(node.getValue());
+        if (monkeyBuiltin != null) {
+            return monkeyBuiltin;
+        }
+
+        // 都没有找到就返回错误
+        return newError("identifier not found: " + node.getValue());
     }
 
     /**
@@ -593,35 +617,57 @@ public class Evaluator {
     /**
      * 对函数调用表达式进行求值。
      * <p>
-     * 步骤：
+     * 本方法根据函数对象的类型，分别处理用户自定义函数与内置函数的调用逻辑。
+     * </p>
+     *
+     * <p>
+     * 求值流程：
      * <ol>
-     *     <li>先对函数部分（左侧）求值，得到 {@link MonkeyFunction}</li>
-     *     <li>再对实参列表求值，得到 {@code List<MonkeyObject>}</li>
-     *     <li>调用 {@link #applyFunction(MonkeyObject, List)} 实现函数调用逻辑</li>
+     *     <li>若 {@code obj} 为 {@link MonkeyFunction}（用户自定义函数）：
+     *         <ul>
+     *             <li>检查实参与形参数量是否匹配。</li>
+     *             <li>创建新的函数执行环境（通过 {@link #extendFunctionEnv(MonkeyFunction, List)}）。</li>
+     *             <li>在该环境中对函数体进行求值，并通过 {@link #unwrapReturnValue(MonkeyObject)} 获取返回值。</li>
+     *         </ul>
+     *     </li>
+     *     <li>若 {@code obj} 为 {@link MonkeyBuiltin}（内置函数）：
+     *         <ul>
+     *             <li>将参数列表转换为数组形式。</li>
+     *             <li>直接调用 {@link MonkeyBuiltin#call(MonkeyObject...)} 执行内置函数逻辑。</li>
+     *         </ul>
+     *     </li>
+     *     <li>若 {@code obj} 既不是函数也不是内置函数，返回一个错误对象。</li>
      * </ol>
      * </p>
      *
-     * @param obj  被调用的函数对象
-     * @param args 实参求值结果列表
-     * @return 函数返回值或错误对象
+     * @param obj  被调用的函数对象，可能是用户定义函数或内置函数
+     * @param args 实参求值后的结果列表
+     * @return 函数执行结果，可能为任意 {@link MonkeyObject}，或错误对象（如参数不匹配、类型错误等）
      */
     private static MonkeyObject applyFunction(MonkeyObject obj,
                                               List<MonkeyObject> args) {
-        if (!(obj instanceof MonkeyFunction)) {
-            return newError("not a function: " + obj.getClass()
-                    .getSimpleName());
+        if (obj instanceof MonkeyFunction) {
+            MonkeyFunction fn = (MonkeyFunction) obj;
+
+            if (fn.getParameters().size() != args.size()) {
+                return newError("wrong number of arguments: expected=" + fn.getParameters().size()
+                        + ", got=" + args.size());
+            }
+
+            Environment env = extendFunctionEnv(fn, args);
+            MonkeyObject eval = eval(fn.getBody(), env);
+            return unwrapReturnValue(eval);
         }
 
-        MonkeyFunction fn = (MonkeyFunction) obj;
-
-        if (fn.getParameters().size() != args.size()) {
-            return newError("wrong number of arguments: expected=" + fn.getParameters().size()
-                            + ", got=" + args.size());
+        if (obj instanceof MonkeyBuiltin) {
+            MonkeyBuiltin fn = (MonkeyBuiltin) obj;
+            // 直接转换为数组
+            MonkeyObject[] argsArray = args.toArray(new MonkeyObject[0]);
+            return fn.call(argsArray);
         }
 
-        Environment env = extendFunctionEnv(fn, args);
-        MonkeyObject eval = eval(fn.getBody(), env);
-        return unwrapReturnValue(eval);
+        return newError("not a function: " + obj.getClass()
+                .getSimpleName());
     }
 
     /**

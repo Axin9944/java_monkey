@@ -27,6 +27,10 @@ import java.util.List;
  *     <li>函数定义与函数对象测试（{@link #testFunctionObject()}）</li>
  *     <li>函数调用与参数传递测试（{@link #testFunctionApplication()}）</li>
  *     <li>闭包（Closure）测试（{@link #testClosures()}）</li>
+ *     <li>解析字符串对象测试（{@link #testStringLiteral()}）</li>
+ *     <li>字符串对象拼接测试（{@link #testStringConcatenation()}）</li>
+ *     <li>内置函数调用测试（{@link #testBuiltinFunction()}）：
+ *            验证内置函数（如 <code>len()</code>）的求值结果与错误处理逻辑</li>
  * </ul>
  * <p>
  * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
@@ -72,6 +76,8 @@ public class EvaluatorTest {
 
         // 执行字符串拼接测试
         testStringConcatenation();
+
+        testBuiltinFunction();
     }
 
     /**
@@ -510,6 +516,74 @@ public class EvaluatorTest {
         }
 
         System.out.println("[Parse]===> " + str.getValue());
+    }
+
+    /**
+     * 测试 Monkey 语言内置函数的求值结果。
+     * <p>
+     * 当前主要测试 {@code len()} 函数的行为，验证其在不同输入下的返回值或错误信息。
+     * </p>
+     *
+     * <p>测试内容包括：</p>
+     * <ul>
+     *     <li>空字符串求长度（应返回 0）</li>
+     *     <li>普通字符串求长度（如 "four" → 4）</li>
+     *     <li>长字符串求长度（"hello world" → 11）</li>
+     *     <li>非字符串类型参数（如整数 1，应返回类型错误）</li>
+     *     <li>参数数量不正确（如传入两个参数，应返回参数数量错误）</li>
+     * </ul>
+     *
+     * <p>测试逻辑：</p>
+     * <ol>
+     *     <li>构造一组 {@link EvalIfElseTestCase} 测试用例，包含输入表达式与期望结果。</li>
+     *     <li>调用 {@link #testEval(String)} 对每个表达式进行求值。</li>
+     *     <li>若期望结果为整数，则验证返回值是否为 {@link MonkeyInteger} 且数值匹配。</li>
+     *     <li>若期望结果为字符串，则验证返回对象是否为 {@link MonkeyError} 且错误信息匹配。</li>
+     * </ol>
+     *
+     * <p>
+     * 测试输出：
+     * 成功的测试用例通过 {@code System.out.println()} 输出，
+     * 错误或不匹配的情况通过 {@code System.err.println()} 报告。
+     * </p>
+     */
+    private static void testBuiltinFunction() {
+        List<EvalIfElseTestCase> testCases = Arrays.asList(
+                new EvalIfElseTestCase("len(\"\")", 0),
+                new EvalIfElseTestCase("len(\"four\")", 4),
+                new EvalIfElseTestCase("len(\"hello world\")", 11),
+                new EvalIfElseTestCase("len(1)",
+                        "argument to 'len' not supported got MonkeyInteger"),
+                new EvalIfElseTestCase("len(\"one\", \"two\")", "" +
+                        "wrong number of aruments.got=2, want=1")
+        );
+
+        for (EvalIfElseTestCase testCase : testCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            Object expected = testCase.expected;
+            if (expected instanceof Integer) {
+                if(testMonkeyInteger(monkeyObject, (Integer) expected)) {
+                    System.out.println("[Parse] ===> " +
+                            testCase.input + " = " + expected);
+                }
+                continue;
+            }
+
+            if (expected instanceof String) {
+                if (!(monkeyObject instanceof MonkeyError)) {
+                    System.err.println("object is not Error. got=" +
+                            monkeyObject.type());
+                    continue;
+                }
+
+                MonkeyError error = (MonkeyError)monkeyObject;
+
+                if (error.getMessage().equals(expected)) {
+                    System.err.println("wrong error message. got=" +
+                            expected + " want=" + error.getMessage());
+                }
+            }
+        }
     }
 
     /**

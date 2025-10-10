@@ -65,6 +65,24 @@ public enum ObjectType {
     STRING_OBJ("STRING"),
 
     /**
+     * 内置函数对象。
+     * <p>
+     * 表示 Monkey 语言中的内置函数（Built-in Function），
+     * 例如 {@code len()} 等在解释器中预定义的函数。
+     * 该类型对象由 {@link com.linewell.monkey.object.imp.MonkeyBuiltin} 表示，
+     * 在求值阶段可直接调用，不依赖用户定义。
+     * </p>
+     *
+     * <p><b>典型用途：</b></p>
+     * <ul>
+     *   <li>在解释器初始化时注册常用函数（如 {@code len}）。</li>
+     *   <li>在标识符求值时（{@code evalIdentifier}）从内置函数表中查找。</li>
+     *   <li>在函数调用求值时（{@code applyFunction}）直接执行其逻辑。</li>
+     * </ul>
+     */
+    BUILTIN_OBJ("BUTLTIN"),
+
+    /**
      * 错误对象。
      * <p>用于表示运行时错误，如运算符类型不匹配、未定义的标识符等。</p>
      */

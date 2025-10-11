@@ -26,9 +26,8 @@ public class Lexer_Test {
                 "10 == 10;\n" +
                 "10 != 9;\n" +
                 "\"foobar\"\n" +
-                "\"foo bar\"";
-
-        System.out.println(input);
+                "\"foo bar\"\n" +
+                "[1, 2];\n";
 
         TestCase[] tests = {new TestCase(TokenType.LET, "let"),
                 new TestCase(TokenType.IDENT, "five"),
@@ -105,6 +104,12 @@ public class Lexer_Test {
                 new TestCase(TokenType.SEMICOLON, ";"),
                 new TestCase(TokenType.STRING, "foobar"),
                 new TestCase(TokenType.STRING, "foo bar"),
+                new TestCase(TokenType.LBRACKET, "["),
+                new TestCase(TokenType.INT, "1"),
+                new TestCase(TokenType.COMMA, ","),
+                new TestCase(TokenType.INT, "2"),
+                new TestCase(TokenType.RBRACKET, "]"),
+                new TestCase(TokenType.SEMICOLON, ";"),
                 new TestCase(TokenType.EOF, ""),};
 
         Lexer lexer = new Lexer(input);
@@ -125,6 +130,8 @@ public class Lexer_Test {
             }
 
         }
+
+        System.out.println("[Parse] ====> " + input);
     }
 
     private static class TestCase {

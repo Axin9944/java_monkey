@@ -8,6 +8,8 @@ import com.linewell.monkey.token.TokenType;
  *
  * <p>通过维护当前位置、读取位置以及当前字符，提供逐字符扫描和 Token 生成功能。
  * 支持标识符、数字、运算符、分隔符等基本元素。
+ *
+ * @author axin
  */
 public class Lexer {
 
@@ -119,6 +121,12 @@ public class Lexer {
                 break;
             case '"':
                 tok = newToken(TokenType.STRING, readString());
+                break;
+            case '[':
+                tok = newToken(TokenType.LBRACKET, ch);
+                break;
+            case ']':
+                tok = newToken(TokenType.RBRACKET, ch);
                 break;
             case '\0':  // 对应 Go 的 0
                 tok = new Token(TokenType.EOF, "");

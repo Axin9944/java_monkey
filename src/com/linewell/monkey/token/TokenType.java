@@ -84,6 +84,10 @@ public enum TokenType {
     LBRACE("{"),
     /** 右花括号 '}' */
     RBRACE("}"),
+    /** 左方括号 '[' */
+    LBRACKET("["),
+    /** 右方括号 ']' */
+    RBRACKET("]"),
 
     // 关键字
     /** 函数定义关键字 'fn' */

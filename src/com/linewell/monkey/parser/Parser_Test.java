@@ -25,6 +25,8 @@ public class Parser_Test {
         testFunctionLiteralExpression();
         testCallExpressionParsing();
         testStringLiteralExpression();
+        testParsingArrayLiterals();
+        testParsingIndexExpression();
     }
 
     /**
@@ -530,7 +532,12 @@ public class Parser_Test {
                 new OperatorTestCase("add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
                         "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))"),
                 new OperatorTestCase("add(a + b + c * d / f + g)",
-                        "add((((a + b) + ((c * d) / f)) + g))"));
+                        "add((((a + b) + ((c * d) / f)) + g))"),
+                new OperatorTestCase("a * [1, 2, 3, 4][b * c] * d",
+                        "((a * ([1, 2, 3, 4][(b * c)])) * d)"),
+                new OperatorTestCase("add(a * b[2], b[1], 2 * [1, 2][1])",
+                        "add((a * (b[2])), (b[1]), (2 * ([1, 2][1])))")
+        );
 
         for (OperatorTestCase testCase : operatorTestCases) {
             Lexer lexer = new Lexer(testCase.input);
@@ -907,6 +914,141 @@ public class Parser_Test {
         }
 
         System.out.println("[Parse]" + "literal.Value=" + literal.getValue());
+    }
+
+    /**
+     * 测试解析数组字面量（Array Literal）的语法解析能力。
+     * <p>
+     * 对应的 Monkey 源码示例：
+     * <pre>
+     *     [1, 2 * 2, 3 + 3]
+     * </pre>
+     *
+     * 测试目标：
+     * <ul>
+     *     <li>验证 {@link Parser} 能正确识别数组字面量的语法结构。</li>
+     *     <li>检查数组元素数量是否正确（应为 3 个）。</li>
+     *     <li>确认每个元素的表达式类型与语义是否正确：
+     *         <ul>
+     *             <li>第一个元素：整数字面量 1</li>
+     *             <li>第二个元素：中缀表达式 2 * 2</li>
+     *             <li>第三个元素：中缀表达式 3 + 3</li>
+     *         </ul>
+     *     </li>
+     * </ul>
+     *
+     * 测试流程：
+     * <ol>
+     *     <li>初始化词法分析器 {@link Lexer} 与语法分析器 {@link Parser}。</li>
+     *     <li>调用 {@code parser.parseProgram()} 生成 AST。</li>
+     *     <li>检查解析结果是否为 {@link ExpressionStatement}。</li>
+     *     <li>验证主表达式类型是否为 {@link ArrayLiteral}。</li>
+     *     <li>逐一验证数组元素的解析结果。</li>
+     * </ol>
+     *
+     * 若解析过程中出现错误（如语法错误、节点类型不符等），将输出详细错误信息。
+     */
+    private static void testParsingArrayLiterals() {
+        String input = "[1, 2 * 2, 3 + 3]";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        Statement statement = program.getStatements().get(0);
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("statement not ExpressionStatemen. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+        Expression expression = stmt.getExpression();
+
+        if(!(expression instanceof ArrayLiteral)) {
+            System.err.println("expression not ArrayLiteral. got=" +
+                    expression.getClass().getSimpleName());
+            return;
+        }
+
+        ArrayLiteral array = (ArrayLiteral) expression;
+
+        if (array.getElements().size() != 3) {
+            System.err.println("array.Element not 3. got=" +
+                    array.getElements().size());
+            return;
+        }
+
+        testIntegerLiteral(array.getElements().get(0), 1);
+        testInfixExpression(array.getElements().get(1), 2, "*", 2);
+        testInfixExpression(array.getElements().get(2), 3, "+", 3);
+    }
+
+    /**
+     * 测试解析数组索引表达式（Index Expression）的语法解析能力。
+     * <p>
+     * 对应的 Monkey 源码示例：
+     * <pre>
+     *     myArray[1 + 1]
+     * </pre>
+     *
+     * 测试目标：
+     * <ul>
+     *     <li>验证 {@link Parser} 能正确识别索引表达式的语法结构。</li>
+     *     <li>确认被索引对象（左操作数）是否正确解析为标识符 {@code "myArray"}。</li>
+     *     <li>检查索引部分表达式是否正确解析为中缀表达式 {@code 1 + 1}。</li>
+     * </ul>
+     *
+     * 测试流程：
+     * <ol>
+     *     <li>初始化词法分析器 {@link Lexer} 与语法分析器 {@link Parser}。</li>
+     *     <li>调用 {@code parser.parseProgram()} 生成 AST。</li>
+     *     <li>检查解析结果是否为 {@link ExpressionStatement}。</li>
+     *     <li>验证主表达式类型是否为 {@link IndexExpression}。</li>
+     *     <li>检查索引表达式的左值与索引表达式部分是否符合预期。</li>
+     * </ol>
+     *
+     * 成功通过时，会打印测试输入字符串；
+     * 若解析错误或类型不符，则输出详细错误信息。
+     */
+    private static void testParsingIndexExpression() {
+        String input = "myArray[1 + 1]";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        Statement statement = program.getStatements().get(0);
+
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("statement not ExpressionStatemen. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+
+        Expression expression = stmt.getExpression();
+
+        if (!(expression instanceof IndexExpression)) {
+            System.err.println("expression not IndexExpression. got=" +
+                    expression.getClass().getSimpleName());
+            return;
+        }
+
+        IndexExpression indexExpression = (IndexExpression) expression;
+
+        if (!testIdentifier(indexExpression.getLeft(), "myArray")) {
+            return;
+        }
+
+        if (!testInfixExpression(indexExpression.getIndex(), 1, "+", 1)) {
+            return;
+        }
+
+        System.out.println("[Parser] ===>" + input);
     }
 
     /**

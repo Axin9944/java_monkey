@@ -12,19 +12,140 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/***
- * monkey 语言的语法解析器（Parser）
- * 负责将词法分析器（Lexer）输出的 Token 流解析为抽象语法树（AST）
+/**
+ * Monkey 语言的语法解析器（Parser）。
+ * <p>
+ * 本解析器负责将 {@link com.linewell.monkey.lexer.Lexer} 输出的词法单元（{@link com.linewell.monkey.token.Token} 流）
+ * 转换为对应的抽象语法树（AST, Abstract Syntax Tree）。
+ * </p>
  *
- * 使用“递归下降解析”（Recursive Descent Parsing）技术
- * 维护两个 Token：当前 Token 和向前看 Token（peek），用于预测下一步语法结构
- * <p>核心设计思想：
+ * <h2>核心职责：</h2>
  * <ul>
- *     <li>通过“注册表”机制动态绑定 Token 类型与解析函数</li>
- *     <li>使用“前缀/中缀”分类处理表达式（如：-5 是前缀，3+4 是中缀）</li>
- *     <li>通过优先级控制运算符结合顺序（如：3+4*5 中 * 优先于 +）</li>
+ *     <li>读取并管理词法分析器产生的 Token 流</li>
+ *     <li>根据 Monkey 语言的语法规则构建表达式（Expression）与语句（Statement）节点</li>
+ *     <li>为解释器或编译器阶段提供语法结构化的中间表示</li>
  * </ul>
  *
+ * <h2>实现原理：</h2>
+ * <p>
+ * 该解析器采用了 “递归下降解析（Recursive Descent Parsing）” 技术，
+ * 并引入了 “Pratt Parser” 机制（通过前缀 / 中缀函数注册系统动态控制优先级）。
+ * </p>
+ *
+ * <h3>解析机制：</h3>
+ * <ul>
+ *     <li>维护两个指针：
+ *         <ul>
+ *             <li>{@code currentToken}：当前正在处理的 Token</li>
+ *             <li>{@code peekToken}：向前看的下一个 Token，用于预测语法结构</li>
+ *         </ul>
+ *     </li>
+ *     <li>通过注册表机制将 Token 类型映射到对应的解析函数：</li>
+ *     <ul>
+ *         <li><b>前缀解析函数（PrefixParseFn）</b>：用于解析以当前 token 开头的表达式，例如：
+ *             <ul>
+ *                 <li>{@code -5}</li>
+ *                 <li>{@code !true}</li>
+ *                 <li>{@code (1 + 2)}</li>
+ *                 <li>{@code [1, 2, 3]}</li>
+ *             </ul>
+ *         </li>
+ *         <li><b>中缀解析函数（InfixParseFn）</b>：用于解析需要左右操作数的表达式，例如：
+ *             <ul>
+ *                 <li>{@code 3 + 4}</li>
+ *                 <li>{@code x == y}</li>
+ *                 <li>{@code myArray[0]}</li>
+ *             </ul>
+ *         </li>
+ *     </ul>
+ *     <li>通过 {@link #PRECEDENCES} 表定义操作符优先级，实现正确的表达式结合顺序，例如：
+ *         <pre>
+ *             3 + 4 * 5  →  等价于  3 + (4 * 5)
+ *         </pre>
+ *     </li>
+ * </ul>
+ *
+ * <h3>支持的语法结构：</h3>
+ * <ul>
+ *     <li><b>语句（Statement）：</b>
+ *         <ul>
+ *             <li>{@code let} 声明语句，例如：<code>let x = 5;</code></li>
+ *             <li>{@code return} 返回语句，例如：<code>return x + y;</code></li>
+ *             <li>表达式语句，例如：<code>x + 1;</code></li>
+ *         </ul>
+ *     </li>
+ *     <li><b>表达式（Expression）：</b>
+ *         <ul>
+ *             <li>标识符（{@code x}）</li>
+ *             <li>整数字面量（{@code 5}）</li>
+ *             <li>布尔值（{@code true}, {@code false}）</li>
+ *             <li>前缀表达式（{@code -x}, {@code !flag}）</li>
+ *             <li>中缀表达式（{@code a + b}, {@code x == y}）</li>
+ *             <li>分组表达式（{@code (x + y)}）</li>
+ *             <li>条件表达式（{@code if (x < y) { ... } else { ... }})</li>
+ *             <li>函数字面量（{@code fn(x, y) { return x + y; }})</li>
+ *             <li>函数调用（{@code add(1, 2, 3)})</li>
+ *             <li>字符串字面量（{@code "hello world"}）</li>
+ *             <li>数组字面量（{@code [1, 2, 3]}）✅</li>
+ *             <li>数组索引（{@code arr[0]}）✅</li>
+ *         </ul>
+ *     </li>
+ * </ul>
+ *
+ * <h3>新增特性：</h3>
+ * <ul>
+ *     <li>支持数组字面量解析（{@link #parseArrayLiteral()}）</li>
+ *     <li>支持数组索引表达式解析（{@link #parseIndexExpression(Expression)}）</li>
+ *     <li>在优先级映射 {@link #PRECEDENCES} 中引入 {@code INDEX} 层级，以保证 <code>array[index]</code> 的正确结合顺序</li>
+ * </ul>
+ *
+ * <h3>示例：</h3>
+ * <pre>
+ * 输入：
+ *   let arr = [1, 2, 3];
+ *   arr[0];
+ *
+ * 输出 AST：
+ *   Program
+ *     ├── LetStatement(name="arr")
+ *     │     └── ArrayLiteral(elements=[1, 2, 3])
+ *     └── ExpressionStatement
+ *           └── IndexExpression
+ *                 ├── left: Identifier("arr")
+ *                 └── index: IntegerLiteral(0)
+ * </pre>
+ *
+ * <h3>主要扩展方法：</h3>
+ * <ul>
+ *     <li>{@link #parseExpressionList(TokenType)}：解析以逗号分隔的表达式序列</li>
+ *     <li>{@link #parseArrayLiteral()}：解析数组字面量</li>
+ *     <li>{@link #parseIndexExpression(Expression)}：解析数组索引表达式</li>
+ * </ul>
+ *
+ * <p><b>设计模式：</b></p>
+ * <ul>
+ *     <li>使用函数式接口（Java 8 Lambda）模拟 Pratt Parser 的前缀/中缀回调注册机制</li>
+ *     <li>使用优先级表控制表达式结合顺序</li>
+ *     <li>通过错误列表（{@link #errors}）集中收集所有语法错误信息</li>
+ * </ul>
+ *
+ * <p><b>示例用法：</b></p>
+ * <pre>{@code
+ * Lexer lexer = new Lexer("let arr = [1, 2, 3]; arr[0];");
+ * Parser parser = new Parser(lexer);
+ * Program program = parser.parseProgram();
+ * System.out.println(program);
+ * }</pre>
+ *
+ * @see com.linewell.monkey.lexer.Lexer
+ * @see com.linewell.monkey.token.Token
+ * @see com.linewell.monkey.ast.Expression
+ * @see com.linewell.monkey.ast.Statement
+ * @see com.linewell.monkey.ast.imp.ArrayLiteral
+ * @see com.linewell.monkey.ast.imp.IndexExpression
+ *
+ * @author
+ *   <a href="https://github.com/Axin9944">axin</a>（基于 Monkey 语言解释器扩展实现）
  */
 public class Parser {
 
@@ -36,6 +157,7 @@ public class Parser {
     private static final int PRODUCT = 4;       // * /
     private static final int PREFIX = 5;        // -x !x
     private static final int CALL = 6;          // function(x)
+    private static final int INDEX = 7;         // array[index]
 
     // 优先级映射表（TokenType -> 优先级数值）
     private static final Map<TokenType, Integer> PRECEDENCES = new HashMap<>();
@@ -50,6 +172,7 @@ public class Parser {
         PRECEDENCES.put(TokenType.SLASH, PRODUCT);
         PRECEDENCES.put(TokenType.MULT, PRODUCT);
         PRECEDENCES.put(TokenType.LPAREN, CALL);
+        PRECEDENCES.put(TokenType.LBRACKET, INDEX);
     }
 
     // 词法分析器，提供 token 流
@@ -160,6 +283,8 @@ public class Parser {
         registerPrefix(TokenType.FUNCTION, this::parseFunctionLiteral);
         // String
         registerPrefix(TokenType.STRING, this::parseStringLiteral);
+        // [
+        registerPrefix(TokenType.LBRACKET, this::parseArrayLiteral);
 
         // 注册中缀解析函数
         // +
@@ -180,6 +305,8 @@ public class Parser {
         registerInfix(TokenType.GT, this::parseInfixExpression);
         // (
         registerInfix(TokenType.LPAREN, this::parseCallExpression);
+        // [
+        registerInfix(TokenType.LBRACKET, this::parseIndexExpression);
     }
 
     public void nextToken() {
@@ -678,8 +805,8 @@ public class Parser {
         // 设置当前 token，即 "("
         callExpression.setToken(currentToken);
         // 解析实参列表
-        callExpression.setArguments(parseCallArguments());
-
+//        callExpression.setArguments(parseCallArguments());
+        callExpression.setArguments(parseExpressionList(TokenType.RPAREN));
         return callExpression;
     }
 
@@ -747,5 +874,127 @@ public class Parser {
      */
     private Expression parseStringLiteral() {
         return new StringLiteral(currentToken.getType(), currentToken.getLiteral());
+    }
+
+    /**
+     * 解析一组以逗号分隔的表达式列表（expression list），例如：
+     * <pre>
+     *     [1, 2, 3]
+     *     foo(1, 2, bar)
+     * </pre>
+     *
+     * <p>该方法常用于解析：
+     * <ul>
+     *     <li>数组字面量中的元素（配合 {@link #parseArrayLiteral()}）</li>
+     *     <li>函数调用参数列表</li>
+     * </ul>
+     *
+     * <p>解析规则：
+     * <ol>
+     *     <li>若下一个 token 是 <code>end</code>（例如 <code>]</code> 或 <code>)</code>），
+     *         则表示空列表，直接返回空集合。</li>
+     *     <li>否则，解析第一个表达式。</li>
+     *     <li>若后续有逗号（<code>,</code>），则持续解析下一个表达式并加入列表。</li>
+     *     <li>最后期待遇到 <code>end</code> 结束（若没有则返回 null 表示语法错误）。</li>
+     * </ol>
+     *
+     * @param end 列表结束的 token 类型（如 {@code TokenType.RBRACKET} 或 {@code TokenType.RPAREN}）
+     * @return 解析得到的表达式列表；若语法错误则返回 {@code null}
+     */
+    private List<Expression> parseExpressionList(TokenType end) {
+        List<Expression> expressions = new ArrayList<>();
+
+        if (peekTokenIs(end)) {
+            nextToken();
+            return expressions;
+        }
+
+        nextToken();
+
+        expressions.add(parseExpression(LOWEST));
+
+        while(peekTokenIs(TokenType.COMMA)) {
+            nextToken();
+            nextToken();
+            expressions.add(parseExpression(LOWEST));
+        }
+
+        if(!expectPeek(end)) {
+            return null;
+        }
+
+        return expressions;
+    }
+
+    /**
+     * 解析数组索引表达式（Index Expression）。
+     * <p>
+     * 对应 Monkey 语法：
+     * <pre>
+     *     array[index]
+     * </pre>
+     *
+     * 示例：
+     * <pre>
+     *     myArray[0]
+     * </pre>
+     *
+     * 解析流程：
+     * <ol>
+     *     <li>当前 token 为左方括号（<code>[</code>）。</li>
+     *     <li>调用 {@link #nextToken()} 进入索引表达式部分。</li>
+     *     <li>解析索引表达式（调用 {@link #parseExpression(int)}）。</li>
+     *     <li>期望下一个 token 为右方括号（<code>]</code>）。</li>
+     * </ol>
+     *
+     * 若匹配失败（例如缺少右括号），返回 {@code null} 表示语法错误。
+     *
+     * @param left 被索引的表达式（通常为 {@code ArrayLiteral} 或标识符）
+     * @return 解析得到的 {@link IndexExpression} 节点，或 {@code null}（语法错误）
+     */
+    private Expression parseIndexExpression(Expression left) {
+        IndexExpression indexExpression = new IndexExpression();
+        indexExpression.setLeft(left);
+        indexExpression.setToken(currentToken);
+
+        nextToken();
+        indexExpression.setIndex(parseExpression(LOWEST));
+
+        if (!expectPeek(TokenType.RBRACKET)) {
+            return null;
+        }
+
+        return indexExpression;
+    }
+
+    /**
+     * 解析数组字面量表达式（Array Literal）。
+     * <p>
+     * 对应 Monkey 语法：
+     * <pre>
+     *     [expr1, expr2, expr3, ...]
+     * </pre>
+     *
+     * 示例：
+     * <pre>
+     *     let arr = [1, 2, 3];
+     * </pre>
+     *
+     * 解析流程：
+     * <ol>
+     *     <li>当前 token 为左方括号（<code>[</code>）。</li>
+     *     <li>调用 {@link #parseExpressionList(TokenType)} 解析元素列表，直到遇到右方括号（<code>]</code>）。</li>
+     *     <li>将得到的表达式列表设置到 {@link ArrayLiteral} 节点中。</li>
+     * </ol>
+     *
+     * @return 构建好的 {@link ArrayLiteral} 抽象语法树节点
+     */
+    private Expression parseArrayLiteral() {
+        ArrayLiteral arrayLiteral = new ArrayLiteral();
+        arrayLiteral.setToken(currentToken);
+
+        arrayLiteral.setElements(parseExpressionList(TokenType.RBRACKET));
+
+        return arrayLiteral;
     }
 }

@@ -13,6 +13,8 @@ package com.linewell.monkey.object;
  *   <li>在求值器（Evaluator）中，根据不同的类型执行对应的运算逻辑。</li>
  *   <li>在错误信息中输出对象类型，以帮助调试。</li>
  * </ul>
+ *
+ * @author axin
  */
 public enum ObjectType {
 
@@ -81,6 +83,24 @@ public enum ObjectType {
      * </ul>
      */
     BUILTIN_OBJ("BUTLTIN"),
+
+    /**
+     * 数组对象。
+     * <p>
+     * 表示 Monkey 语言中的数组类型（Array Object），
+     * 例如字面量 {@code [1, 2, 3]}。
+     * 该类型对象由 {@link com.linewell.monkey.object.imp.MonkeyArray} 表示，
+     * 在求值阶段用于存储数组元素，支持索引访问和遍历。
+     * </p>
+     *
+     * <p><b>典型用途：</b></p>
+     * <ul>
+     *   <li>在解析数组字面量时创建 {@link com.linewell.monkey.object.imp.MonkeyArray} 实例。</li>
+     *   <li>在数组索引表达式求值（{@code evalIndexExpression}）中访问指定元素。</li>
+     *   <li>在调试或输出时，通过 {@link com.linewell.monkey.object.imp.MonkeyArray#inspect()} 获取可读字符串表示。</li>
+     * </ul>
+     */
+    ARRAY_OBJ("ARRAY"),
 
     /**
      * 错误对象。

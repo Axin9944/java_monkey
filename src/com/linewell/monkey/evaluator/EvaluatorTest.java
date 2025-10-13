@@ -1,5 +1,6 @@
 package com.linewell.monkey.evaluator;
 
+import com.linewell.monkey.ast.imp.ArrayLiteral;
 import com.linewell.monkey.ast.imp.Identifier;
 import com.linewell.monkey.ast.imp.Program;
 import com.linewell.monkey.lexer.Lexer;
@@ -31,6 +32,8 @@ import java.util.List;
  *     <li>字符串对象拼接测试（{@link #testStringConcatenation()}）</li>
  *     <li>内置函数调用测试（{@link #testBuiltinFunction()}）：
  *            验证内置函数（如 <code>len()</code>）的求值结果与错误处理逻辑</li>
+ *      <li>数组字面量解析与求值测试（{@link #testArrayLiteral()}）</li>
+ *      <li>数组索引表达式求值测试（{@link #testArrayIndexExpressions()}）</li>
  * </ul>
  * <p>
  * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
@@ -77,7 +80,14 @@ public class EvaluatorTest {
         // 执行字符串拼接测试
         testStringConcatenation();
 
+        // 执行内置函数测试
         testBuiltinFunction();
+
+        // 执行数组字面量解析与求值测试
+        testArrayLiteral();
+
+        // 执行数组索引表达式求值测试
+        testArrayIndexExpressions();
     }
 
     /**
@@ -584,6 +594,111 @@ public class EvaluatorTest {
                 }
             }
         }
+    }
+
+    /**
+     * 测试数组字面量（Array Literal）的解析与求值。
+     * <p>
+     * 该测试用于验证解释器是否能够正确解析并计算数组字面量中的各个表达式。
+     * 例如输入：
+     * <pre>
+     *     [1, 2 * 2, 3 + 3]
+     * </pre>
+     * 期望结果为：
+     * <pre>
+     *     [1, 4, 6]
+     * </pre>
+     * </p>
+     *
+     * <p>测试逻辑包括：</p>
+     * <ul>
+     *     <li>检查返回对象是否为 {@link MonkeyArray}</li>
+     *     <li>验证数组长度是否正确</li>
+     *     <li>验证数组中每个元素的求值结果是否符合预期</li>
+     * </ul>
+     *
+     * <p>该测试主要用于验证：</p>
+     * <ul>
+     *     <li>数组字面量的语法解析</li>
+     *     <li>数组元素中的表达式求值是否正确</li>
+     *     <li>数组在解释器中的基本行为是否符合设计</li>
+     * </ul>
+     */
+    private static void testArrayLiteral() {
+        String input = "[1, 2 * 2, 3 + 3]";
+
+        MonkeyObject monkeyObject = testEval(input);
+        if (!(monkeyObject instanceof MonkeyArray)) {
+            System.err.println("object is not Array. got=" + monkeyObject.type());
+        }
+
+        MonkeyArray monkeyArray = (MonkeyArray)monkeyObject;
+
+        if (monkeyArray.getElements().length != 3){
+            System.err.println("array has wrong num of elementsd. got=" +
+                    monkeyArray.getElements().length);
+        }
+
+        testMonkeyInteger(monkeyArray.getElements()[0], 1);
+        testMonkeyInteger(monkeyArray.getElements()[1], 2 * 2);
+        testMonkeyInteger(monkeyArray.getElements()[2], 3 + 3);
+
+        System.out.println("[Parse]===>" + input);
+    }
+
+    /**
+     * 测试数组索引表达式（Array Index Expression）的解析与求值。
+     * <p>
+     * 该测试用于验证解释器能否正确处理数组的索引访问操作，
+     * 包括索引为常量、表达式、变量引用、越界索引等多种情况。
+     * </p>
+     *
+     * <p>测试用例如下：</p>
+     * <ul>
+     *     <li>{@code [1, 2, 3][0]} → 1</li>
+     *     <li>{@code [1, 2, 3][1 + 1]} → 3</li>
+     *     <li>{@code let i = 0; [1][i]} → 1</li>
+     *     <li>{@code [1, 2, 3][3]} → null（越界）</li>
+     *     <li>{@code [1, 2, 3][-1]} → null（负索引）</li>
+     * </ul>
+     *
+     * <p>测试逻辑包括：</p>
+     * <ul>
+     *     <li>验证索引表达式能否正确返回对应元素</li>
+     *     <li>验证表达式型索引（如 {@code 1 + 1}）是否能被正确计算</li>
+     *     <li>验证越界或负索引情况下是否返回 {@code NULL}</li>
+     * </ul>
+     *
+     * <p>该测试覆盖了解释器中索引运算的主要场景，是数组求值功能的重要验证部分。</p>
+     */
+    private static void testArrayIndexExpressions() {
+        List<EvalIfElseTestCase> testCases = Arrays.asList(
+                new EvalIfElseTestCase("[1, 2, 3][0];", 1),
+                new EvalIfElseTestCase("[1, 2, 3][1];", 2),
+                new EvalIfElseTestCase("[1, 2, 3][2];", 3),
+                new EvalIfElseTestCase("let i = 0; [1][i]", 1),
+                new EvalIfElseTestCase("[1, 2, 3][1 + 1]", 3),
+                new EvalIfElseTestCase("let myArray = [1, 2, 3]; myArray[2]", 3),
+                new EvalIfElseTestCase("let myArray = [1, 2, 3]; " +
+                        "myArray[0] + myArray[1] + myArray[2]", 6),
+                new EvalIfElseTestCase("let myArray = [1, 2, 3]; let i = myArray[0];" +
+                        "myArray[i]", 2),
+                new EvalIfElseTestCase("[1, 2, 3][3]", null),
+                new EvalIfElseTestCase("[1, 2, 3][-1]", null)
+        );
+
+        for (EvalIfElseTestCase testCase : testCases) {
+            MonkeyObject evalted = testEval(testCase.input);
+            Object integer = testCase.expected;
+            if (integer != null) {
+                testMonkeyInteger(evalted, (Integer) integer);
+            } else {
+                testNullObject(evalted);
+            }
+            System.out.println("[Parse]===>" + evalted.inspect() + " = " +
+                    integer);
+        }
+
     }
 
     /**

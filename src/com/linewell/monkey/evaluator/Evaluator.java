@@ -9,10 +9,7 @@ import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
 import com.linewell.monkey.object.imp.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 解释器核心类，负责对 AST 节点进行求值 (evaluation)，
@@ -31,6 +28,7 @@ import java.util.Map;
  *     <li>错误传播机制</li>
  *     <li>字符串类型</li>
  *     <li>内置函数（Built-in Functions，例如 len 等常用函数）</li>
+ *     <li>数组字面量及索引操作</li>
  * </ul>
  *
  * <p>求值过程以 {@link #eval(Node, Environment)} 为入口，
@@ -71,6 +69,8 @@ public class Evaluator {
      *     <li>{@link FunctionLiteral}：函数定义（fn）</li>
      *     <li>{@link CallExpression}：（函数调用，包括用户自定义函数与内置函数调用）</li>
      *     <li>{@link StringLiteral}：字符串类型</li>
+     *     <li>{@link ArrayLiteral}：表示数组字面量，如 [1, 2, 3]</li>
+     *     <li>{@link IndexExpression}：表示数组索引访问，如 a[0]</li>
      * </ul>
      *
      * @param node AST 节点
@@ -197,6 +197,34 @@ public class Evaluator {
         // 例如 \"Hello World\"
         if (node instanceof StringLiteral) {
             return new MonkeyString(((StringLiteral) node).getValue());
+        }
+
+        // 数组索引表达式 (IndexExpression)，例如 let a = [1, 2, 3, 4]; a[1]
+        if (node instanceof ArrayLiteral) {
+            List<MonkeyObject> elements = evalExpression(((ArrayLiteral) node).getElements(), env);
+            if (elements.size() == 1 && isError(elements.get(0))) {
+                return elements.get(0);
+            }
+
+            return new MonkeyArray(elements.toArray(new MonkeyObject[0]));
+        }
+
+        // 数组类型 (ArrayLiteral)
+        // 例如 [1, 2, 3, 4]
+        // 数组索引类型
+        // 例如 let a = [1, 2, 3, 4]
+        // a[1]
+        if (node instanceof IndexExpression) {
+            MonkeyObject left = eval(((IndexExpression) node).getLeft(), env);
+            if (isError(left)) {
+                return left;
+            }
+            MonkeyObject index = eval(((IndexExpression) node).getIndex(), env);
+            if (isError(index)) {
+                return index;
+            }
+
+            return evalIndexExpression(left, index);
         }
 
         // 未处理的情况，返回 null（表示不支持该节点）
@@ -728,6 +756,76 @@ public class Evaluator {
         MonkeyString rightObj = (MonkeyString) right;
 
         return new MonkeyString(leftObj.getValue() + rightObj.getValue());
+    }
+
+    /**
+     * 对数组索引表达式进行求值。
+     * <p>
+     * 该方法用于根据给定的下标 {@code index} 从数组 {@code array} 中取出对应元素，
+     * 并在取值前执行类型检查与边界检查，以保证求值过程安全。
+     * </p>
+     *
+     * <p>行为说明：</p>
+     * <ul>
+     *     <li>若 {@code index} 超出数组范围（小于 0 或大于等于数组长度），则返回 {@code NULL}。</li>
+     *     <li>若索引在合法范围内，则返回对应位置的元素。</li>
+     * </ul>
+     *
+     * <p>示例：</p>
+     * <pre>
+     *     MonkeyArray arr = [10, 20, 30];
+     *     evalArrayIndexExpression(arr, new MonkeyInteger(1)); // 返回 20
+     *     evalArrayIndexExpression(arr, new MonkeyInteger(5)); // 返回 NULL（越界）
+     * </pre>
+     *
+     * @param array 待求值的数组对象 {@link MonkeyArray}
+     * @param index 数组索引对象 {@link MonkeyInteger}
+     * @return 若索引合法则返回对应元素，否则返回 {@code NULL}
+     */
+    private static MonkeyObject evalArrayIndexExpression(MonkeyObject array,
+                                                         MonkeyObject index) {
+        MonkeyArray monkeyArray = (MonkeyArray) array;
+        MonkeyInteger idx = (MonkeyInteger) index;
+        int len = monkeyArray.getElements().length;
+        // 越界检查：索引小于 0 或大于等于数组长度时返回 NULL
+        if (idx.getValue() < 0 || idx.getValue() >= len) {
+            return NULL;
+        }
+
+        // 返回指定下标的数组元素
+        return monkeyArray.getElements()[(int)idx.getValue()];
+    }
+
+    /**
+     * 对通用的索引表达式 {@code left[index]} 进行求值。
+     * <p>
+     * 当前实现仅支持数组索引操作：当 {@code left} 为 {@link MonkeyArray}，
+     * 且 {@code index} 为 {@link MonkeyInteger} 时，执行数组求值。
+     * </p>
+     *
+     * <p>
+     * 若索引操作应用于不支持的对象类型（如字符串、哈希表等），
+     * 则返回一个 {@link MonkeyError}，提示不支持该类型的索引操作。
+     * </p>
+     *
+     * <p>示例：</p>
+     * <pre>
+     *     evalIndexExpression(arrayObj, intObj); // 合法，返回数组元素
+     *     evalIndexExpression(stringObj, intObj); // 非法，返回错误对象
+     * </pre>
+     *
+     * @param left  被索引的对象（当前仅支持 {@link MonkeyArray}）
+     * @param index 索引对象（应为 {@link MonkeyInteger}）
+     * @return 索引求值结果，若类型不支持则返回错误对象
+     */
+    private static MonkeyObject evalIndexExpression(MonkeyObject left,
+                                                    MonkeyObject index) {
+        if (left.type() == ObjectType.ARRAY_OBJ && index.type() == ObjectType.INTEGER_OBJ) {
+            return evalArrayIndexExpression(left, index);
+        } else {
+            return new MonkeyError(String.format("index operator not supported: %s",
+                    left.type()));
+        }
     }
 
     /**

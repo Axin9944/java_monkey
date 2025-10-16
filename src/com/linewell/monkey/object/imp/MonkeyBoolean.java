@@ -1,40 +1,46 @@
 package com.linewell.monkey.object.imp;
 
+import com.linewell.monkey.object.HashKey;
+import com.linewell.monkey.object.Hashable;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
 
 /**
  * {@code MonkeyBoolean} 表示 Monkey 语言中的布尔对象。
  *
- * <p>该类实现了 {@link MonkeyObject} 接口，
+ * <p>该类实现了 {@link MonkeyObject} 与 {@link Hashable} 接口，
  * 用于封装布尔字面量（如 {@code true} 和 {@code false}）。</p>
  *
- * <p>在解释执行过程中，解析器（Parser）将源码中的布尔字面量
- * 转换为 {@code MonkeyBoolean} 对象，并交由求值器（Evaluator）处理逻辑运算。</p>
+ * <p>在解释执行过程中，解析器（Parser）会将源码中的布尔字面量
+ * 转换为 {@code MonkeyBoolean} 对象，并在求值器（Evaluator）阶段
+ * 参与逻辑表达式的计算。</p>
  *
- * <p>主要功能：</p>
+ * <h3>哈希支持：</h3>
+ * <p>布尔对象可作为哈希表的键（Hash Key）。
+ * {@link #HashKey()} 方法会根据布尔值生成唯一的哈希键：
  * <ul>
- *   <li>存储一个 {@code boolean} 值</li>
- *   <li>通过 {@link #type()} 标记对象类型为 {@code BOOLEAN_OBJ}</li>
- *   <li>通过 {@link #inspect()} 返回布尔值的字符串形式</li>
+ *   <li>{@code true → HashKey(1, BOOLEAN_OBJ)}</li>
+ *   <li>{@code false → HashKey(0, BOOLEAN_OBJ)}</li>
  * </ul>
+ * </p>
  *
- * <p>示例：</p>
+ * <p>该设计保证了布尔键的可比较性与哈希表查找的一致性。</p>
+ *
+ * <h3>示例：</h3>
  * <pre>
- * MonkeyBoolean t = new MonkeyBoolean(true);
- * System.out.println(t.type());    // 输出：BOOLEAN
- * System.out.println(t.inspect()); // 输出："true"
- *
- * MonkeyBoolean f = new MonkeyBoolean(false);
- * System.out.println(f.inspect()); // 输出："false"
+ * MonkeyBoolean t = MonkeyBoolean.getBoolean(true);
+ * System.out.println(t.inspect());  // 输出: "true"
+ * System.out.println(t.HashKey());  // 输出: HashKey{type=BOOLEAN_OBJ, value=1}
  * </pre>
  *
  * @see MonkeyObject
+ * @see Hashable
+ * @see com.linewell.monkey.object.HashKey
  * @see ObjectType#BOOLEAN_OBJ
  */
-public class MonkeyBoolean implements MonkeyObject {
+public class MonkeyBoolean implements MonkeyObject, Hashable {
 
-    // 单例实例
+    /** 预定义单例实例，避免重复创建。 */
     public static final MonkeyBoolean TRUE = new MonkeyBoolean(true);
     public static final MonkeyBoolean FALSE = new MonkeyBoolean(false);
 
@@ -89,5 +95,19 @@ public class MonkeyBoolean implements MonkeyObject {
      */
     public static MonkeyBoolean getBoolean(boolean value) {
         return value ? TRUE : FALSE;
+    }
+
+    /**
+     * 生成用于哈希表键比较的 {@link HashKey}。
+     * <p>使用固定整数（0/1）作为哈希值以确保布尔键唯一性。</p>
+     */
+    @Override
+    public HashKey HashKey() {
+        int value = 0;
+        if (this.value) {
+            value = 1;
+        }
+
+        return new HashKey(value, type());
     }
 }

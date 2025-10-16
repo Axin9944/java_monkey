@@ -128,6 +128,9 @@ public class Lexer {
             case ']':
                 tok = newToken(TokenType.RBRACKET, ch);
                 break;
+            case ':':
+                tok = newToken(TokenType.COLON, ch);
+                break;
             case '\0':  // 对应 Go 的 0
                 tok = new Token(TokenType.EOF, "");
                 break;

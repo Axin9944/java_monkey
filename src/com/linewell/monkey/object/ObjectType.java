@@ -103,6 +103,24 @@ public enum ObjectType {
     ARRAY_OBJ("ARRAY"),
 
     /**
+     * 哈希对象。
+     * <p>
+     * 表示 Monkey 语言中的哈希（Hash / Map）类型对象，
+     * 例如字面量 {@code {"one": 1, "two": 2}}。
+     * 该类型对象由 {@link com.linewell.monkey.object.imp.MonkeyHash} 表示，
+     * 在求值阶段用于存储键值对映射关系，支持根据哈希键进行查找和访问。
+     * </p>
+     *
+     * <p><b>典型用途：</b></p>
+     * <ul>
+     *   <li>在解析哈希字面量时创建 {@link com.linewell.monkey.object.imp.MonkeyHash} 实例。</li>
+     *   <li>在哈希索引表达式求值（{@code evalHashIndexExpression}）中根据键查找对应的值。</li>
+     *   <li>在调试或输出时，通过 {@link com.linewell.monkey.object.imp.MonkeyHash#inspect()} 获取可读字符串表示。</li>
+     * </ul>
+     */
+    HASH_OBJ("HASH"),
+
+    /**
      * 错误对象。
      * <p>用于表示运行时错误，如运算符类型不匹配、未定义的标识符等。</p>
      */

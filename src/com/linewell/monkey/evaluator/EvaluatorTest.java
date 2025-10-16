@@ -5,12 +5,19 @@ import com.linewell.monkey.ast.imp.Identifier;
 import com.linewell.monkey.ast.imp.Program;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.object.Environment;
+import com.linewell.monkey.object.HashKey;
+import com.linewell.monkey.object.HashPair;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.imp.*;
 import com.linewell.monkey.parser.Parser;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import static com.linewell.monkey.object.imp.MonkeyBoolean.FALSE;
+import static com.linewell.monkey.object.imp.MonkeyBoolean.TRUE;
 
 /**
  * 对 {@link Evaluator} 进行单元测试的类。
@@ -88,6 +95,12 @@ public class EvaluatorTest {
 
         // 执行数组索引表达式求值测试
         testArrayIndexExpressions();
+
+        // 执行哈希字面量解析与求值测试
+        testHashLiterals();
+
+        // 执行哈希表索引表达式求值测试
+        testHashIndexExpressions();
     }
 
     /**
@@ -268,7 +281,8 @@ public class EvaluatorTest {
                 new EvalErrorTestCase("if (10 > 1) { true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
                 new EvalErrorTestCase("if (10 > 1) { return true + false; }", "unknown operator: BOOLEAN + BOOLEAN"),
                 new EvalErrorTestCase("foobar", "identifier not found: foobar"),
-                new EvalErrorTestCase("\"Hello\" - \"World\"", "unknown operator: STRING - STRING")
+                new EvalErrorTestCase("\"Hello\" - \"World\"", "unknown operator: STRING - STRING"),
+                new EvalErrorTestCase("{\"name\": \"Monkey\"}[fn(x) { x }];", "unusable as hash key: FUNCTION")
         );
 
         for (EvalErrorTestCase testCase : testCases) {
@@ -695,10 +709,146 @@ public class EvaluatorTest {
             } else {
                 testNullObject(evalted);
             }
-            System.out.println("[Parse]===>" + evalted.inspect() + " = " +
+            System.out.println("[Parse]===>" + testCase.input + " = " +
                     integer);
         }
 
+    }
+
+    /**
+     * 测试 Monkey 语言中哈希字面量（Hash Literal）的解析与求值。
+     *
+     * <p>该测试验证解释器是否能够正确地：</p>
+     * <ul>
+     *     <li>对哈希结构中的键和值表达式进行求值；</li>
+     *     <li>支持不同类型的键（字符串、整数、布尔值）；</li>
+     *     <li>确保哈希中键的 {@link HashKey} 计算一致性；</li>
+     *     <li>生成包含正确键值对的 {@link MonkeyHash} 对象。</li>
+     * </ul>
+     *
+     * <p>测试输入示例：</p>
+     * <pre>{@code
+     * let two = "two";
+     * {
+     *     "one": 10 - 9,
+     *     two: 1 + 1,
+     *     "thr" + "ee": 6 / 2,
+     *     4: 4,
+     *     true: 5,
+     *     false: 6,
+     * }
+     * }</pre>
+     *
+     * <p>预期求值结果：</p>
+     * <ul>
+     *     <li>"one" → 1</li>
+     *     <li>"two" → 2</li>
+     *     <li>"three" → 3</li>
+     *     <li>4 → 4</li>
+     *     <li>true → 5</li>
+     *     <li>false → 6</li>
+     * </ul>
+     *
+     * <p>若求值结果不是 {@link MonkeyHash}，或生成的键值对数量或值不匹配，
+     * 则打印错误信息。</p>
+     */
+    private static void testHashLiterals() {
+        String input = "let two = \"two\";\n" +
+                "\t{\n" +
+                "\t\t\"one\": 10 - 9,\n" +
+                "\t\ttwo: 1 + 1,\n" +
+                "\t\t\"thr\" + \"ee\": 6 / 2,\n" +
+                "\t\t4 : 4,\n" +
+                "\t\ttrue: 5,\n" +
+                "        false: 6,\n" +
+                "\t}";
+
+        MonkeyObject evlauated = testEval(input);
+        if (!(evlauated instanceof MonkeyHash)) {
+            System.err.println("Eval didn't return Hash. got=" +
+                    evlauated.type());
+            return;
+        }
+
+        MonkeyHash result = (MonkeyHash) evlauated;
+
+        Map<HashKey, Long> expected = new HashMap<>();
+        expected.put(new MonkeyString("one").HashKey(), 1l);
+        expected.put(new MonkeyString("two").HashKey(), 2l);
+        expected.put(new MonkeyString("three").HashKey(), 3l);
+        expected.put(new MonkeyInteger(4).HashKey(), 4l);
+        expected.put(TRUE.HashKey(), 5l);
+        expected.put(FALSE.HashKey(), 6l);
+
+        if (result.getPairs().size() != expected.size()) {
+            System.err.println("Hash has wrong num of pairs. got=" +
+                    result.getPairs().size());
+            return;
+        }
+
+        for (Map.Entry<HashKey, Long> entry : expected.entrySet()) {
+            HashPair hashPair = result.getPairs().get(entry.getKey());
+            if (hashPair == null) {
+                System.err.println("no pair for given key in Pairs");
+            }
+
+            testMonkeyInteger(hashPair.getValue(), entry.getValue());
+        }
+
+        System.out.println("[Parse] ===> " + input);
+
+    }
+
+    /**
+     * 测试 Monkey 语言中哈希索引表达式（Hash Index Expression）的求值。
+     *
+     * <p>该测试验证解释器是否能正确解析并求值形如
+     * {@code {"key": value}[index]} 的哈希索引语句。</p>
+     *
+     * <p>测试内容包括：</p>
+     * <ul>
+     *     <li>通过字符串键访问哈希值（存在键 / 不存在键）；</li>
+     *     <li>使用变量作为键访问哈希值；</li>
+     *     <li>访问空哈希表；</li>
+     *     <li>使用不同类型的键（整数、布尔）进行索引。</li>
+     * </ul>
+     *
+     * <p>示例测试用例：</p>
+     * <pre>{@code
+     * {"foo": 5}["foo"]         // => 5
+     * {"foo": 5}["bar"]         // => null
+     * let key = "foo"; {"foo": 5}[key] // => 5
+     * {}["foo"]                 // => null
+     * {5: 5}[5]                 // => 5
+     * {true: 5}[true]           // => 5
+     * {false: 5}[false]         // => 5
+     * }</pre>
+     *
+     * <p>若求值结果与预期不符，将打印错误信息；
+     * 否则在控制台输出对应解析过程的日志。</p>
+     */
+    private static void testHashIndexExpressions() {
+        List<EvalIfElseTestCase> testCases = Arrays.asList(
+                new EvalIfElseTestCase("{\"foo\": 5}[\"foo\"]", 5L),
+                new EvalIfElseTestCase("{\"foo\": 5}[\"bar\"]", null),
+                new EvalIfElseTestCase("let key = \"foo\"; {\"foo\": 5}[key]", 5L),
+                new EvalIfElseTestCase("{}[\"foo\"]", null),
+                new EvalIfElseTestCase("{5: 5}[5]", 5L),
+                new EvalIfElseTestCase("{true: 5}[true]", 5L),
+                new EvalIfElseTestCase("{false: 5}[false]", 5L)
+        );
+
+        for (EvalIfElseTestCase testCase : testCases) {
+            MonkeyObject evaluated = testEval(testCase.input);
+            Object expected = testCase.expected;
+            if (expected != null) {
+                testMonkeyInteger(evaluated, (Long) expected);
+            } else {
+                testNullObject(evaluated);
+            }
+            System.out.println("[Parse] ===> " + testCase.input + " = " +
+                    expected);
+        }
     }
 
     /**

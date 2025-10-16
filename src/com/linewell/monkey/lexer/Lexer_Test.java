@@ -27,7 +27,8 @@ public class Lexer_Test {
                 "10 != 9;\n" +
                 "\"foobar\"\n" +
                 "\"foo bar\"\n" +
-                "[1, 2];\n";
+                "[1, 2];\n" +
+                "{\"foo\": \"bar\"}\n";
 
         TestCase[] tests = {new TestCase(TokenType.LET, "let"),
                 new TestCase(TokenType.IDENT, "five"),
@@ -110,6 +111,11 @@ public class Lexer_Test {
                 new TestCase(TokenType.INT, "2"),
                 new TestCase(TokenType.RBRACKET, "]"),
                 new TestCase(TokenType.SEMICOLON, ";"),
+                new TestCase(TokenType.LBRACE, "{"),
+                new TestCase(TokenType.STRING, "foo"),
+                new TestCase(TokenType.COLON, ":"),
+                new TestCase(TokenType.STRING, "bar"),
+                new TestCase(TokenType.RBRACE, "}"),
                 new TestCase(TokenType.EOF, ""),};
 
         Lexer lexer = new Lexer(input);

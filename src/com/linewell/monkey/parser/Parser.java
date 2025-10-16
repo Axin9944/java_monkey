@@ -88,39 +88,11 @@ import java.util.Map;
  *             <li>字符串字面量（{@code "hello world"}）</li>
  *             <li>数组字面量（{@code [1, 2, 3]}）✅</li>
  *             <li>数组索引（{@code arr[0]}）✅</li>
+ *             <li>哈希表结构 （{@code {"name" : "mazi"}}）</li>
  *         </ul>
  *     </li>
  * </ul>
  *
- * <h3>新增特性：</h3>
- * <ul>
- *     <li>支持数组字面量解析（{@link #parseArrayLiteral()}）</li>
- *     <li>支持数组索引表达式解析（{@link #parseIndexExpression(Expression)}）</li>
- *     <li>在优先级映射 {@link #PRECEDENCES} 中引入 {@code INDEX} 层级，以保证 <code>array[index]</code> 的正确结合顺序</li>
- * </ul>
- *
- * <h3>示例：</h3>
- * <pre>
- * 输入：
- *   let arr = [1, 2, 3];
- *   arr[0];
- *
- * 输出 AST：
- *   Program
- *     ├── LetStatement(name="arr")
- *     │     └── ArrayLiteral(elements=[1, 2, 3])
- *     └── ExpressionStatement
- *           └── IndexExpression
- *                 ├── left: Identifier("arr")
- *                 └── index: IntegerLiteral(0)
- * </pre>
- *
- * <h3>主要扩展方法：</h3>
- * <ul>
- *     <li>{@link #parseExpressionList(TokenType)}：解析以逗号分隔的表达式序列</li>
- *     <li>{@link #parseArrayLiteral()}：解析数组字面量</li>
- *     <li>{@link #parseIndexExpression(Expression)}：解析数组索引表达式</li>
- * </ul>
  *
  * <p><b>设计模式：</b></p>
  * <ul>
@@ -285,6 +257,8 @@ public class Parser {
         registerPrefix(TokenType.STRING, this::parseStringLiteral);
         // [
         registerPrefix(TokenType.LBRACKET, this::parseArrayLiteral);
+        // {
+        registerPrefix(TokenType.LBRACE, this::parseHashLiteral);
 
         // 注册中缀解析函数
         // +
@@ -996,5 +970,62 @@ public class Parser {
         arrayLiteral.setElements(parseExpressionList(TokenType.RBRACKET));
 
         return arrayLiteral;
+    }
+
+    /**
+     * 解析 Monkey 语言中的哈希字面量（Hash Literal）表达式。
+     * <p>
+     * 语法格式如下：
+     * <pre>
+     * {
+     *     key1: value1,
+     *     key2: value2,
+     *     ...
+     * }
+     * </pre>
+     *
+     * <p>该方法会依次解析每个键值对：
+     * <ul>
+     *   <li>首先解析一个表达式作为键（key）；</li>
+     *   <li>接着期望读取冒号 {@code :}；</li>
+     *   <li>然后解析对应的值（value）表达式；</li>
+     *   <li>多个键值对之间以逗号 {@code ,} 分隔；</li>
+     *   <li>最后以右花括号 {@code }} 结束。</li>
+     * </ul>
+     *
+     * <p>如果在解析过程中遇到语法错误（例如缺少冒号、逗号或右花括号），
+     * 则方法会返回 {@code null} 以表示解析失败。
+     *
+     * @return {@link HashLiteral} 表达式节点；
+     *         若语法不合法则返回 {@code null}。
+     */
+    private Expression parseHashLiteral() {
+        HashLiteral hashLiteral = new HashLiteral(currentToken);
+        hashLiteral.setExpression(new HashMap<>());
+
+        while (!peekTokenIs(TokenType.RBRACE)) {
+            nextToken();
+            Expression key = parseExpression(LOWEST);
+
+            if (!expectPeek(TokenType.COLON)) {
+                return null;
+            }
+
+            nextToken();
+
+            Expression value = parseExpression(LOWEST);
+
+            hashLiteral.getExpression().put(key, value);
+
+            if ((!peekTokenIs(TokenType.RBRACE)) && (!expectPeek(TokenType.COMMA))) {
+                return null;
+            }
+        }
+
+        if (!expectPeek(TokenType.RBRACE)) {
+            return null;
+        }
+
+        return hashLiteral;
     }
 }

@@ -1,41 +1,37 @@
 package com.linewell.monkey.object.imp;
 
+import com.linewell.monkey.object.HashKey;
+import com.linewell.monkey.object.Hashable;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
 
 /**
- * 表示 Monkey 语言中的字符串对象（运行时类型：{@link ObjectType#STRING_OBJ}）。
- * <p>
- * 在解释执行阶段，当遇到字符串字面量（例如 {@code "Hello World"}）时，
- * 解析器会构造一个 {@code MonkeyString} 实例，用于在运行时环境中表示该字符串值。
- * </p>
+ * {@code MonkeyString} 表示 Monkey 语言中的字符串对象。
  *
- * <p><b>主要功能：</b></p>
- * <ul>
- *   <li>封装字符串的实际内容（{@link #value}）。</li>
- *   <li>在 {@link #type()} 方法中返回运行时类型标识 {@code STRING_OBJ}。</li>
- *   <li>在 {@link #inspect()} 方法中返回字符串的可打印表示。</li>
- * </ul>
+ * <p>该类实现了 {@link MonkeyObject} 与 {@link Hashable} 接口，
+ * 是运行时环境中字符串字面量（如 {@code "hello"}）的封装类型。</p>
  *
- * <p><b>典型使用场景：</b></p>
- * <ul>
- *   <li>由语法树节点 {@code StringLiteral} 在求值阶段生成。</li>
- *   <li>在求值器（Evaluator）中参与字符串运算（如拼接）。</li>
- *   <li>在 REPL 输出或调试信息中用于展示字符串值。</li>
- * </ul>
+ * <h3>哈希支持：</h3>
+ * <p>字符串对象可以作为哈希表的键。
+ * {@link #HashKey()} 方法使用 FNV-1a 64 位哈希算法
+ * （由 {@link HashKey#fnv1a64(String)} 实现）计算字符串内容的哈希值，
+ * 并结合对象类型标识 {@code STRING_OBJ} 生成唯一键。</p>
  *
- * <p><b>示例：</b></p>
+ * <p>这种方式确保了不同字符串即使内容相似也能拥有唯一哈希值。</p>
+ *
+ * <h3>示例：</h3>
  * <pre>
- * MonkeyString str = new MonkeyString("Hello");
- * System.out.println(str.type());    // 输出: STRING_OBJ
- * System.out.println(str.inspect()); // 输出: Hello
+ * MonkeyString s = new MonkeyString("foo");
+ * System.out.println(s.inspect());  // 输出: foo
+ * System.out.println(s.HashKey());  // 输出: HashKey{type=STRING_OBJ, value=0x...}
  * </pre>
  *
- * @see com.linewell.monkey.object.MonkeyObject
- * @see com.linewell.monkey.object.ObjectType
- * @see com.linewell.monkey.ast.imp.StringLiteral
+ * @see MonkeyObject
+ * @see Hashable
+ * @see com.linewell.monkey.object.HashKey
+ * @see ObjectType#STRING_OBJ
  */
-public class MonkeyString implements MonkeyObject {
+public class MonkeyString implements MonkeyObject, Hashable {
 
     /** 字符串的实际值（不包含引号） */
     private String value;
@@ -78,5 +74,14 @@ public class MonkeyString implements MonkeyObject {
     @Override
     public String inspect() {
         return value;
+    }
+
+    /**
+     * 生成字符串对象的哈希键。
+     * <p>使用 FNV-1a 64 位哈希函数确保字符串键的唯一性与稳定性。</p>
+     */
+    @Override
+    public HashKey HashKey() {
+        return new HashKey(HashKey.fnv1a64(value), type());
     }
 }

@@ -6,8 +6,7 @@ import com.linewell.monkey.ast.imp.*;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.lexer.Lexer_Test;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 public class Parser_Test {
 
@@ -27,6 +26,7 @@ public class Parser_Test {
         testStringLiteralExpression();
         testParsingArrayLiterals();
         testParsingIndexExpression();
+        testParsingHashLiteralsStringKeys();
     }
 
     /**
@@ -1049,6 +1049,89 @@ public class Parser_Test {
         }
 
         System.out.println("[Parser] ===>" + input);
+    }
+
+    /**
+     * 测试解析器（{@link Parser}）对哈希字面量（Hash Literal）语法的解析功能。
+     * <p>
+     * 输入示例为：
+     * <pre>
+     * {"one": 1, "two": 2, "three": 3}
+     * </pre>
+     *
+     * <p>测试目标：
+     * <ul>
+     *   <li>验证解析结果的语法树根节点类型正确（应为 {@link ExpressionStatement}）。</li>
+     *   <li>确认表达式节点类型为 {@link HashLiteral}。</li>
+     *   <li>检查哈希表中的键值对数量是否正确。</li>
+     *   <li>验证每个键是否为 {@link StringLiteral}，以及对应的值是否解析为正确的整数常量。</li>
+     * </ul>
+     *
+     * <p>测试过程：
+     * <ol>
+     *   <li>通过输入字符串构造 {@link Lexer} 与 {@link Parser}；</li>
+     *   <li>调用 {@link Parser#parseProgram()} 生成语法树；</li>
+     *   <li>检查解析器错误（若存在则输出并终止测试）；</li>
+     *   <li>验证语法树结构与期望的键值对对应关系；</li>
+     *   <li>调用 {@code testIntegerLiteral()} 辅助方法验证值节点内容。</li>
+     * </ol>
+     *
+     * <p>若解析结果与预期不符，将通过 {@code System.err.println} 输出详细错误信息；
+     * 否则打印测试通过提示。
+     */
+    private static void testParsingHashLiteralsStringKeys() {
+        String input = "{\"one\": 1, \"two\": 2, \"three\": 3}";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        Statement statement = program.getStatements().get(0);
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("statement is not ExpressionStatement. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+
+        Expression expression = stmt.getExpression();
+        if (!(expression instanceof HashLiteral)) {
+            System.err.println("expression is not HashLiteral. got=" +
+                    expression.getClass().getSimpleName());
+            return;
+        }
+
+        Map<Expression, Expression> map = ((HashLiteral) expression).getExpression();
+        if (map.size() != 3) {
+            System.err.println("map has wrong length. got=" + map.size());
+            return;
+        }
+
+        Map<String, Integer> expected = new HashMap<>();
+        expected.put("one", 1);
+        expected.put("two", 2);
+        expected.put("three", 3);
+
+        for (Expression entry : map.keySet()) {
+            Expression key = entry;
+            if (!(key instanceof  StringLiteral)) {
+                System.err.println("key is not StringLiteral. got=" +
+                        key.getClass().getSimpleName());
+                return;
+            }
+
+            StringLiteral k = (StringLiteral) key;
+
+            Expression value = map.get(k);
+
+            Integer i = expected.get(k.getValue());
+
+            testIntegerLiteral(value, i);
+        }
+
+        System.out.println("[Parse] ====> " + input);
     }
 
     /**

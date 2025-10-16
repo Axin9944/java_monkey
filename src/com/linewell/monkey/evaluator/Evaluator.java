@@ -4,9 +4,7 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Node;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.ast.imp.*;
-import com.linewell.monkey.object.Environment;
-import com.linewell.monkey.object.MonkeyObject;
-import com.linewell.monkey.object.ObjectType;
+import com.linewell.monkey.object.*;
 import com.linewell.monkey.object.imp.*;
 
 import java.util.*;
@@ -29,6 +27,7 @@ import java.util.*;
  *     <li>字符串类型</li>
  *     <li>内置函数（Built-in Functions，例如 len 等常用函数）</li>
  *     <li>数组字面量及索引操作</li>
+ *     <li>哈希字面量及哈希索引操作</li>
  * </ul>
  *
  * <p>求值过程以 {@link #eval(Node, Environment)} 为入口，
@@ -71,6 +70,7 @@ public class Evaluator {
      *     <li>{@link StringLiteral}：字符串类型</li>
      *     <li>{@link ArrayLiteral}：表示数组字面量，如 [1, 2, 3]</li>
      *     <li>{@link IndexExpression}：表示数组索引访问，如 a[0]</li>
+     *     <li>{@link HashLiteral}：表示哈希字面量，如 {"name" : "mazi"}</li>
      * </ul>
      *
      * @param node AST 节点
@@ -199,7 +199,7 @@ public class Evaluator {
             return new MonkeyString(((StringLiteral) node).getValue());
         }
 
-        // 数组索引表达式 (IndexExpression)，例如 let a = [1, 2, 3, 4]; a[1]
+        // 数组表达式 (ArrayLiteral)，例如 let a = [1, 2, 3, 4];
         if (node instanceof ArrayLiteral) {
             List<MonkeyObject> elements = evalExpression(((ArrayLiteral) node).getElements(), env);
             if (elements.size() == 1 && isError(elements.get(0))) {
@@ -209,11 +209,9 @@ public class Evaluator {
             return new MonkeyArray(elements.toArray(new MonkeyObject[0]));
         }
 
-        // 数组类型 (ArrayLiteral)
-        // 例如 [1, 2, 3, 4]
-        // 数组索引类型
-        // 例如 let a = [1, 2, 3, 4]
-        // a[1]
+        // 数组索引类型 （IndexExpression）
+        // 例如 let a = [1, 2, 3, 4],
+        // a[1],  {"name" : "麻子"}["name"]
         if (node instanceof IndexExpression) {
             MonkeyObject left = eval(((IndexExpression) node).getLeft(), env);
             if (isError(left)) {
@@ -225,6 +223,12 @@ public class Evaluator {
             }
 
             return evalIndexExpression(left, index);
+        }
+
+        // 哈希类型 (HashLiteral)
+        // 例如 {"name" : "麻子"}
+        if (node instanceof HashLiteral) {
+            return evalHashLiteral((HashLiteral) node, env);
         }
 
         // 未处理的情况，返回 null（表示不支持该节点）
@@ -798,34 +802,140 @@ public class Evaluator {
 
     /**
      * 对通用的索引表达式 {@code left[index]} 进行求值。
-     * <p>
-     * 当前实现仅支持数组索引操作：当 {@code left} 为 {@link MonkeyArray}，
-     * 且 {@code index} 为 {@link MonkeyInteger} 时，执行数组求值。
-     * </p>
      *
-     * <p>
-     * 若索引操作应用于不支持的对象类型（如字符串、哈希表等），
-     * 则返回一个 {@link MonkeyError}，提示不支持该类型的索引操作。
-     * </p>
+     * <p>该方法根据被索引对象（{@code left}）的类型，分派至不同的求值逻辑：</p>
+     * <ul>
+     *     <li>
+     *         若 {@code left} 为 {@link MonkeyArray} 且 {@code index} 为 {@link MonkeyInteger}，
+     *         调用 {@link #evalArrayIndexExpression(MonkeyObject, MonkeyObject)} 执行数组索引求值。
+     *     </li>
+     *     <li>
+     *         若 {@code left} 为 {@link MonkeyHash}，
+     *         调用 {@link #evalHashIndexExpression(MonkeyObject, MonkeyObject)} 执行哈希索引求值。
+     *     </li>
+     * </ul>
+     *
+     * <p>若索引操作应用于不支持的对象类型（例如字符串、布尔值、函数等），
+     * 则返回一个 {@link MonkeyError}，提示该类型不支持索引操作。</p>
      *
      * <p>示例：</p>
-     * <pre>
-     *     evalIndexExpression(arrayObj, intObj); // 合法，返回数组元素
-     *     evalIndexExpression(stringObj, intObj); // 非法，返回错误对象
-     * </pre>
+     * <pre>{@code
+     * evalIndexExpression(arrayObj, intObj);   // 合法，返回数组中的元素
+     * evalIndexExpression(hashObj, stringObj); // 合法，返回哈希中对应键的值
+     * evalIndexExpression(stringObj, intObj);  // 非法，返回错误对象
+     * }</pre>
      *
-     * @param left  被索引的对象（当前仅支持 {@link MonkeyArray}）
-     * @param index 索引对象（应为 {@link MonkeyInteger}）
-     * @return 索引求值结果，若类型不支持则返回错误对象
+     * @param left  被索引的对象（可为 {@link MonkeyArray} 或 {@link MonkeyHash}）
+     * @param index 索引对象（数组索引时应为 {@link MonkeyInteger}；
+     *              哈希索引时应为实现 {@link Hashable} 接口的对象）
+     * @return 索引求值结果；
+     *         若类型不支持索引操作，则返回 {@link MonkeyError}
      */
     private static MonkeyObject evalIndexExpression(MonkeyObject left,
                                                     MonkeyObject index) {
         if (left.type() == ObjectType.ARRAY_OBJ && index.type() == ObjectType.INTEGER_OBJ) {
             return evalArrayIndexExpression(left, index);
+        } else if(left.type() == ObjectType.HASH_OBJ) {
+            return evalHashIndexExpression(left, index);
         } else {
             return new MonkeyError(String.format("index operator not supported: %s",
                     left.type()));
         }
+    }
+
+    /**
+     * 对 Monkey 语言中的哈希字面量（Hash Literal）表达式进行求值。
+     *
+     * <p>示例：</p>
+     * <pre>{@code
+     * {"one": 1, "two": 2, "three": 3}
+     * }</pre>
+     *
+     * <p>求值过程：</p>
+     * <ol>
+     *     <li>依次对每个键（key）与值（value）表达式进行求值；</li>
+     *     <li>检查键对象是否实现 {@link Hashable} 接口（确保可作为哈希键）；</li>
+     *     <li>通过 {@code key.HashKey()} 生成 {@link HashKey} 并存入 {@link HashPair}；</li>
+     *     <li>若过程中出现错误对象（{@code MonkeyError}），立即返回错误。</li>
+     * </ol>
+     *
+     * <p>最终返回一个 {@link MonkeyHash} 对象，包含所有已求值的键值对。</p>
+     *
+     * @param node 表示哈希字面量的语法节点，包含键值表达式对
+     * @param env 当前求值的环境（变量作用域）
+     * @return 若成功求值，返回 {@link MonkeyHash}；
+     *         若出现错误（如键不可哈希或表达式求值出错），返回 {@link MonkeyError}。
+     */
+    private static MonkeyObject evalHashLiteral(HashLiteral node, Environment env) {
+        Map<HashKey, HashPair> pairs = new HashMap<>();
+
+        Map<Expression, Expression> expression = node.getExpression();
+
+        for (Map.Entry<Expression, Expression> entry : expression.entrySet()) {
+            // 求值哈希键
+            MonkeyObject key = eval(entry.getKey(), env);
+            if (isError(key)) {
+                return key;
+            }
+
+            // 检查键是否可哈希
+            if (!(key instanceof Hashable)) {
+                return newError(String.format("unusable as hash key: %s", key.type()));
+            }
+
+            MonkeyObject value = eval(entry.getValue(), env);
+            if (isError(value)) {
+                return value;
+            }
+
+            // 生成哈希键与哈希对
+            HashKey hashKey = ((Hashable) key).HashKey();
+            pairs.put(hashKey, new HashPair(key, value));
+        }
+
+        return new MonkeyHash(pairs);
+    }
+
+    /**
+     * 对 Monkey 语言中的哈希索引表达式（Hash Index Expression）进行求值。
+     *
+     * <p>示例：</p>
+     * <pre>{@code
+     * {"foo": 5}["foo"]  // => 5
+     * }</pre>
+     *
+     * <p>求值过程：</p>
+     * <ol>
+     *     <li>检查被索引对象是否为 {@link MonkeyHash}；</li>
+     *     <li>检查索引对象是否实现 {@link Hashable} 接口（可作为哈希键）；</li>
+     *     <li>计算索引的 {@link HashKey}，在哈希表中查找对应的 {@link HashPair}；</li>
+     *     <li>若存在匹配项，则返回其值；若不存在，则返回 {@code NULL}；</li>
+     *     <li>若任一检查失败，则返回 {@link MonkeyError}。</li>
+     * </ol>
+     *
+     * @param hash 表示被索引的哈希对象（应为 {@link MonkeyHash} 类型）
+     * @param index 表示索引键（应为实现 {@link Hashable} 的对象，如 {@link MonkeyString}、{@link MonkeyInteger}）
+     * @return 若键存在，返回对应值；
+     *         若键不存在，返回 {@code NULL}；
+     *         若出现错误（如不可哈希键或错误类型），返回 {@link MonkeyError}。
+     */
+    private static MonkeyObject evalHashIndexExpression(MonkeyObject hash,
+                                                        MonkeyObject index) {
+        if (!(hash instanceof MonkeyHash)) {
+            return newError("hash key is not MonkeyHash.");
+        }
+
+        if (!(index instanceof Hashable)) {
+            return newError("unusable as hash key: " + index.type());
+        }
+
+        HashPair hashPair = ((MonkeyHash) hash).getPairs().get(((Hashable) index).HashKey());
+
+        if (hashPair == null) {
+            return NULL;
+        }
+
+        return hashPair.getValue();
     }
 
     /**

@@ -3,7 +3,6 @@ package com.linewell.monkey.object.imp;
 import com.linewell.monkey.object.BuiltinFunction;
 import com.linewell.monkey.object.MonkeyObject;
 import com.linewell.monkey.object.ObjectType;
-import com.sun.javafx.binding.StringFormatter;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -13,7 +12,7 @@ import java.util.Map;
  * 内置函数对象（MonkeyBuiltin）类。
  * <p>
  * 该类用于封装 Monkey 语言中的内置函数（Built-in Functions），
- * 例如 {@code len()}、{@code first()}、{@code last()}、{@code rest()}、{@code push()} 等。
+ * 例如 {@code len()}、{@code first()}、{@code last()}、{@code rest()}、{@code push()}、{@code print()} 等。
  * 每个内置函数通过 {@link BuiltinFunction} 定义具体逻辑，
  * 并在解释器初始化阶段注册到静态 {@code BUILTINS} 表中。
  * </p>
@@ -34,6 +33,10 @@ import java.util.Map;
  *   <li>{@code push(arr, obj)}：
  *       返回一个新的数组对象，将 {@code obj} 添加到数组 {@code arr} 的末尾；
  *       参数非数组时返回错误对象。</li>
+ *   <li>{@code print(arg1, arg2, ...)}：
+ *       依次打印所有参数的字符串表示（调用 {@code inspect()} 方法），
+ *       每个参数独占一行输出到标准输出（{@code System.out}），
+ *       返回 {@link MonkeyNull#NULL}。</li>
  * </ul>
  *
  * <p><b>典型用途：</b></p>
@@ -48,8 +51,8 @@ import java.util.Map;
  * MonkeyBuiltin lenFn = MonkeyBuiltin.getBUILTINS().get("len");
  * MonkeyObject result = lenFn.call(new MonkeyString("hello")); // 返回 5
  *
- * MonkeyBuiltin firstFn = MonkeyBuiltin.getBUILTINS().get("first");
- * result = firstFn.call(new MonkeyArray(new MonkeyObject[]{new MonkeyInteger(1), new MonkeyInteger(2)})); // 返回 1
+ * MonkeyBuiltin printFn = MonkeyBuiltin.getBUILTINS().get("print");
+ * printFn.call(new MonkeyString("Hello, Monkey!")); // 控制台输出：Hello, Monkey!
  * </pre>
  *
  * <p>说明：该类仅封装内置函数逻辑，不依赖用户自定义函数。</p>
@@ -188,6 +191,13 @@ public class MonkeyBuiltin implements MonkeyObject {
             newElements[len] = args[1];
 
             return new MonkeyArray(newElements);
+        }));
+        BUILTINS.put("print", new MonkeyBuiltin(args -> {
+            for (MonkeyObject arg : args) {
+                System.out.println(arg.inspect());
+            }
+
+            return MonkeyNull.NULL;
         }));
     }
 

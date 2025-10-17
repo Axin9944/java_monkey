@@ -121,6 +121,26 @@ public enum ObjectType {
     HASH_OBJ("HASH"),
 
     /**
+     * 引用对象。
+     * <p>
+     * 表示 Monkey 语言中的引用（Quote）类型对象，
+     * 对应 {@code quote(...)} 表达式的运行时结果。
+     * 在求值阶段，解释器遇到 {@code quote} 调用时不会对其中的表达式进行求值，
+     * 而是将其抽象语法树（{@link com.linewell.monkey.ast.Node}）本身封装为
+     * {@link com.linewell.monkey.object.imp.MonkeyQuote} 对象返回。
+     * </p>
+     *
+     * <p><b>典型用途：</b></p>
+     * <ul>
+     *   <li>在 {@code quote(expr)} 表达式求值时创建 {@link com.linewell.monkey.object.imp.MonkeyQuote} 实例。</li>
+     *   <li>为宏系统（Macro System）提供对 AST 结构的操作能力。</li>
+     *   <li>在调试或输出时，通过 {@link com.linewell.monkey.object.imp.MonkeyQuote#inspect()}
+     *       获取引用的语法树字符串表示。</li>
+     * </ul>
+     */
+    QUOTE_OBJ("QUOTE"),
+
+    /**
      * 错误对象。
      * <p>用于表示运行时错误，如运算符类型不匹配、未定义的标识符等。</p>
      */

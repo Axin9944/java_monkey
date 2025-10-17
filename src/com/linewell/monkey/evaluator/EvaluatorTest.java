@@ -41,6 +41,7 @@ import static com.linewell.monkey.object.imp.MonkeyBoolean.TRUE;
  *            验证内置函数（如 <code>len()</code>）的求值结果与错误处理逻辑</li>
  *      <li>数组字面量解析与求值测试（{@link #testArrayLiteral()}）</li>
  *      <li>数组索引表达式求值测试（{@link #testArrayIndexExpressions()}）</li>
+ *      <li>quote函数求值 （{@link #testQuote()}）</li>
  * </ul>
  * <p>
  * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
@@ -101,6 +102,9 @@ public class EvaluatorTest {
 
         // 执行哈希表索引表达式求值测试
         testHashIndexExpressions();
+
+        // 执行 quote函数 测试
+        testQuote();
     }
 
     /**
@@ -852,6 +856,72 @@ public class EvaluatorTest {
     }
 
     /**
+     * 测试 {@code quote(...)} 表达式的求值结果。
+     * <p>
+     * 该方法用于验证解释器在处理 {@code quote} 表达式时，
+     * 是否能够正确生成对应的 {@link com.linewell.monkey.object.imp.MonkeyQuote} 对象，
+     * 并确保其内部封装的 AST 节点字符串表示与预期一致。
+     * </p>
+     *
+     * <p><b>测试目标：</b></p>
+     * <ul>
+     *   <li>确认 {@code quote(expr)} 返回的对象类型为 {@link MonkeyQuote}。</li>
+     *   <li>验证 {@link MonkeyQuote#getNode()} 不为 {@code null}。</li>
+     *   <li>比较节点的字符串输出（{@code node.toString()}）与期望值是否一致。</li>
+     * </ul>
+     *
+     * <p><b>测试示例：</b></p>
+     * <pre>
+     * quote(5)              → QUOTE(5)
+     * quote(5 + 8)          → QUOTE((5 + 8))
+     * quote(foobar)         → QUOTE(foobar)
+     * quote(foobar + barfoo)→ QUOTE((foobar + barfoo))
+     * </pre>
+     *
+     * <p><b>输出：</b></p>
+     * <ul>
+     *   <li>若测试通过：在控制台打印形如 {@code [Parse] ===>quote(5 + 8) = (5 + 8)} 的提示。</li>
+     *   <li>若测试失败：输出错误信息，标明期望值与实际结果。</li>
+     * </ul>
+     *
+     * <p>说明：该测试方法通常在解释器功能测试阶段执行，用于验证宏系统的基础特性。</p>
+     */
+    private static void testQuote() {
+        List<QuoteTestCase> quoteTestCases = Arrays.asList(
+                new QuoteTestCase("quote(5)", "5"),
+                new QuoteTestCase("quote(5 + 8)", "(5 + 8)"),
+                new QuoteTestCase("quote(foobar)", "foobar"),
+                new QuoteTestCase("quote(foobar + barfoo)",
+                        "(foobar + barfoo)")
+        );
+
+        for (QuoteTestCase testCase : quoteTestCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            if (!(monkeyObject instanceof MonkeyQuote)) {
+                System.err.println("expected *object.Quote. got=" +
+                        monkeyObject.type());
+                return;
+            }
+
+            MonkeyQuote quote = (MonkeyQuote) monkeyObject;
+
+            if (quote.getNode() == null) {
+                System.err.println(testCase.input + "quote Node is null");
+                return;
+            }
+
+            if (!quote.getNode().toString().equals(testCase.expected)) {
+                System.err.println("not equal. got=" + quote.getNode() +
+                        "want=" + testCase.expected);
+                return;
+            }
+
+            System.out.println("[Parse] ===>" + testCase.input + " = "
+                    + testCase.expected);
+        }
+    }
+
+    /**
      * 将输入的表达式字符串进行词法分析、语法分析，然后交给求值器执行。
      *
      * @param input Monkey 源代码字符串
@@ -1003,5 +1073,39 @@ class EvalErrorTestCase {
     public EvalErrorTestCase(String input, String expectedMessage) {
         this.input = input;
         this.expectedMessage = expectedMessage;
+    }
+}
+
+/**
+ * {@code quote(...)} 表达式的测试用例类。
+ * <p>
+ * 用于封装单个 {@code quote} 测试案例的输入与预期输出，
+ * 以便在批量测试中逐一验证解释器的求值结果。
+ * </p>
+ *
+ * <p><b>字段说明：</b></p>
+ * <ul>
+ *   <li>{@link #input} —— 待求值的 {@code quote(...)} 表达式源代码。</li>
+ *   <li>{@link #expected} —— 预期的 AST 节点字符串表示（即 {@code quote} 返回对象的 {@code node.toString()}）。</li>
+ * </ul>
+ *
+ * <p><b>示例：</b></p>
+ * <pre>
+ * QuoteTestCase("quote(5 + 8)", "(5 + 8)")
+ * QuoteTestCase("quote(foobar)", "foobar")
+ * </pre>
+ *
+ * <p>说明：该类通常与 {@link EvaluatorTest#testQuote()} 搭配使用，用于单元测试解释器的宏系统基础功能。</p>
+ *
+ * @see com.linewell.monkey.object.imp.MonkeyQuote
+ * @see EvaluatorTest#testQuote()
+ */
+class QuoteTestCase {
+    public String input;
+    public String expected;
+
+    public QuoteTestCase(String input, String expected) {
+        this.input = input;
+        this.expected = expected;
     }
 }

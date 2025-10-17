@@ -28,6 +28,7 @@ import java.util.*;
  *     <li>内置函数（Built-in Functions，例如 len 等常用函数）</li>
  *     <li>数组字面量及索引操作</li>
  *     <li>哈希字面量及哈希索引操作</li>
+ *     <li>quote函数的调用</li>
  * </ul>
  *
  * <p>求值过程以 {@link #eval(Node, Environment)} 为入口，
@@ -71,6 +72,7 @@ public class Evaluator {
      *     <li>{@link ArrayLiteral}：表示数组字面量，如 [1, 2, 3]</li>
      *     <li>{@link IndexExpression}：表示数组索引访问，如 a[0]</li>
      *     <li>{@link HashLiteral}：表示哈希字面量，如 {"name" : "mazi"}</li>
+     *     <li>{@link MonkeyQuote}：表示quote函数，如 quote("he")</li>
      * </ul>
      *
      * @param node AST 节点
@@ -176,12 +178,17 @@ public class Evaluator {
             return new MonkeyFunction(parameters, body, env);
         }
 
-        // 函数调用表达式（CallExpression）
-        // 例如：add(2, 3)
+        // 函数调用表达式（CallExpression） 及 quote 表达式
+        // 例如：add(2, 3), quote("Hello")
         // 先对函数部分（add）求值，得到对应的函数对象；
         // 再对参数列表求值，然后调用 applyFunction 执行函数体。
         if (node instanceof CallExpression) {
             CallExpression call = (CallExpression) node;
+
+            if ((call.getFunction().tokenLiteral().equals("quote"))){
+                return quote(call.getArguments().get(0));
+            }
+
             MonkeyObject eval = eval(call.getFunction(), env);
             if (isError(eval)) {
                 return eval;
@@ -936,6 +943,25 @@ public class Evaluator {
         }
 
         return hashPair.getValue();
+    }
+
+    /**
+     * 生成一个 {@link MonkeyQuote} 对象，用于封装未求值的抽象语法树（AST）节点。
+     * <p>
+     * 当解释器在求值阶段遇到 {@code quote(...)} 表达式时，
+     * 不会对括号内的表达式进行求值，而是直接将对应的 AST 节点
+     * 封装为 {@link MonkeyQuote} 对象并返回。
+     * 该机制是 Monkey 语言宏系统（Macro System）的基础，
+     * 支持“代码即数据（code as data）”的语义。
+     * </p>
+     *
+     *
+     * @param node 抽象语法树（AST）节点
+     * @return 封装该节点的 {@link MonkeyQuote} 对象
+     * @see com.linewell.monkey.object.imp.MonkeyQuote
+     */
+    private static MonkeyObject quote(Node node) {
+        return new MonkeyQuote(node);
     }
 
     /**

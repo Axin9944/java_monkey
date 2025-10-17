@@ -847,7 +847,8 @@ public class Parser {
      * @return 表示字符串字面量的 {@link com.linewell.monkey.ast.Expression} 节点实例
      */
     private Expression parseStringLiteral() {
-        return new StringLiteral(currentToken.getType(), currentToken.getLiteral());
+        return new StringLiteral(new Token(currentToken.getType(),
+                currentToken.getLiteral()), currentToken.getLiteral());
     }
 
     /**

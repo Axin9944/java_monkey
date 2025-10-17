@@ -1,6 +1,7 @@
 package com.linewell.monkey.ast.imp;
 
 import com.linewell.monkey.ast.Expression;
+import com.linewell.monkey.token.Token;
 import com.linewell.monkey.token.TokenType;
 
 /**
@@ -24,24 +25,24 @@ import com.linewell.monkey.token.TokenType;
  * </p>
  *
  * @see com.linewell.monkey.ast.Expression
- * @see com.linewell.monkey.token.TokenType
+ * @see com.linewell.monkey.token.Token
  *
  * @author axin
  */
 public class StringLiteral implements Expression {
 
     /** 对应的字符串词法单元类型（通常为 {@code TokenType.STRING}）。 */
-    private TokenType token;
+    private Token token;
 
     /** 字符串字面量的实际内容（不包含引号）。 */
     private String value;
 
 
-    public TokenType getToken() {
+    public Token getToken() {
         return token;
     }
 
-    public void setToken(TokenType token) {
+    public void setToken(Token token) {
         this.token = token;
     }
 
@@ -62,7 +63,7 @@ public class StringLiteral implements Expression {
      * @param token 对应的字符串词法单元
      * @param value 字符串的实际内容（不含引号）
      */
-    public StringLiteral(TokenType token, String value) {
+    public StringLiteral(Token token, String value) {
         this.token = token;
         this.value = value;
     }
@@ -80,7 +81,7 @@ public class StringLiteral implements Expression {
     /**
      * 返回节点的字符串表示形式。
      * <p>
-     * 默认返回 {@link TokenType#getLiteral()} 的结果。
+     * 默认返回 {@link Token#getLiteral()} 的结果。
      * </p>
      *
      * @return 该字符串字面量节点的字符串形式

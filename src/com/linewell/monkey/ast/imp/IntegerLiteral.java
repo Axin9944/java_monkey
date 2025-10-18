@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * 表示一个整数类型的字面量表达式节点。
  * 例如：
@@ -65,5 +67,17 @@ public class IntegerLiteral implements Expression {
     @Override
     public String toString() {
         return token.getLiteral();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof IntegerLiteral)) return false;
+        IntegerLiteral that = (IntegerLiteral) o;
+        return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(value);
     }
 }

@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * 表示 Monkey 语言中的数组索引表达式（Index Expression）。
  * <p>
@@ -39,6 +41,11 @@ public class IndexExpression implements Expression {
 
     public IndexExpression(Token token, Expression left, Expression index) {
         this.token = token;
+        this.left = left;
+        this.index = index;
+    }
+
+    public IndexExpression(Expression left, Expression index) {
         this.left = left;
         this.index = index;
     }
@@ -97,5 +104,17 @@ public class IndexExpression implements Expression {
         ie.append("])");
 
         return ie.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof IndexExpression)) return false;
+        IndexExpression that = (IndexExpression) o;
+        return Objects.equals(left, that.left) && Objects.equals(index, that.index);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(left, index);
     }
 }

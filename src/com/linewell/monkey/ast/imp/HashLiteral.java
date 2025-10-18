@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 表示 Monkey 语言中的哈希字面量（Hash Literal）语法节点。
@@ -23,7 +24,7 @@ import java.util.Map;
  * <p>示例：
  * <ul>
  *   <li>源代码：<code>{"one": 1, "two": 2}</code></li>
- *   <li>解析结果：<code>HashLiteral</code> 节点，其中 expression 记录了两个键值对表达式。</li>
+ *   <li>解析结果：<code>HashLiteral</code> 节点，其中 pairs 记录了两个键值对表达式。</li>
  * </ul>
  *
  * @author axin
@@ -39,7 +40,7 @@ public class HashLiteral implements Expression {
      * 哈希表的键值对映射。
      * <p>键和值均为 {@link Expression} 类型，以支持任意可求值表达式作为键和值。
      */
-    private Map<Expression, Expression> expression;
+    private Map<Expression, Expression> pairs;
 
     public Token getToken() {
         return token;
@@ -49,12 +50,12 @@ public class HashLiteral implements Expression {
         this.token = token;
     }
 
-    public Map<Expression, Expression> getExpression() {
-        return expression;
+    public Map<Expression, Expression> getPairs() {
+        return pairs;
     }
 
-    public void setExpression(Map<Expression, Expression> expression) {
-        this.expression = expression;
+    public void setPairs(Map<Expression, Expression> pairs) {
+        this.pairs = pairs;
     }
 
     public HashLiteral() {
@@ -94,10 +95,10 @@ public class HashLiteral implements Expression {
 
         StringBuilder sb = new StringBuilder();
         sb .append("{");
-        if (expression != null) {
-            int len = expression.size();
+        if (pairs != null) {
+            int len = pairs.size();
             int count = 0;
-            for (Map.Entry<Expression, Expression> entry : expression.entrySet()) {
+            for (Map.Entry<Expression, Expression> entry : pairs.entrySet()) {
                 sb.append(entry.getKey().toString()).append(" : ")
                         .append(entry.getValue().toString());
                 if (count < len) {
@@ -109,5 +110,17 @@ public class HashLiteral implements Expression {
         sb.append("}");
 
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof HashLiteral)) return false;
+        HashLiteral that = (HashLiteral) o;
+        return Objects.equals(pairs, that.pairs);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(pairs);
     }
 }

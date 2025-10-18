@@ -4,6 +4,8 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * LetStatement AST 节点。
  *
@@ -17,7 +19,7 @@ import com.linewell.monkey.token.Token;
  * <ul>
  *   <li>{@link Token} token：关键字 {@code let} 对应的词法单元</li>
  *   <li>{@link Identifier} name：变量名（标识符）</li>
- *   <li>{@link Expression} expression：赋值的表达式（右值）</li>
+ *   <li>{@link Expression} value：赋值的表达式（右值）</li>
  * </ul>
  *
  * <p>实现了 {@link Statement} 接口。</p>
@@ -30,13 +32,13 @@ public class LetStatement implements Statement {
     private Identifier name;
 
     // 变量的值表达式，例如整数字面量、函数调用等
-    private Expression expression;
+    private Expression value;
 
 
-    public LetStatement(Token token, Identifier name, Expression expression) {
+    public LetStatement(Token token, Identifier name, Expression value) {
         this.token = token;
         this.name = name;
-        this.expression = expression;
+        this.value = value;
     }
 
     public LetStatement() {
@@ -44,6 +46,10 @@ public class LetStatement implements Statement {
 
     public LetStatement(Token token) {
         this.token = token;
+    }
+
+    public LetStatement(Expression value) {
+        this.value = value;
     }
 
     @Override
@@ -55,8 +61,8 @@ public class LetStatement implements Statement {
         return name;
     }
 
-    public Expression getExpression() {
-        return expression;
+    public Expression getValue() {
+        return value;
     }
 
     public void setToken(Token token) {
@@ -67,8 +73,8 @@ public class LetStatement implements Statement {
         this.name = name;
     }
 
-    public void setExpression(Expression expression) {
-        this.expression = expression;
+    public void setValue(Expression value) {
+        this.value = value;
     }
 
     /**
@@ -89,10 +95,22 @@ public class LetStatement implements Statement {
         sb.append(tokenLiteral()).append(" ");
         sb.append(name.toString());
         sb.append(" = ");
-        if (expression != null) {
-            sb.append(expression);
+        if (value != null) {
+            sb.append(value);
         }
         sb.append(";");
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof LetStatement)) return false;
+        LetStatement that = (LetStatement) o;
+        return Objects.equals(name, that.name) && Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, value);
     }
 }

@@ -154,7 +154,7 @@ public class Evaluator {
         // let 语句（变量定义）
         if (node instanceof LetStatement) {
             LetStatement letStmt = (LetStatement) node;
-            MonkeyObject val = eval(letStmt.getExpression(), env);
+            MonkeyObject val = eval(letStmt.getValue(), env);
             if (isError(val)) {
                 return val;
             }
@@ -876,7 +876,7 @@ public class Evaluator {
     private static MonkeyObject evalHashLiteral(HashLiteral node, Environment env) {
         Map<HashKey, HashPair> pairs = new HashMap<>();
 
-        Map<Expression, Expression> expression = node.getExpression();
+        Map<Expression, Expression> expression = node.getPairs();
 
         for (Map.Entry<Expression, Expression> entry : expression.entrySet()) {
             // 求值哈希键

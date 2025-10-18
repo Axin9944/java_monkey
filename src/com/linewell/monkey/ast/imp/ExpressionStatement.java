@@ -4,6 +4,8 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * 表达式语句（Expression Statement）的 AST 节点。
  * 例如，以下代码中的每一行都是一个 {@code ExpressionStatement}：
@@ -35,6 +37,12 @@ public class ExpressionStatement implements Statement {
         this.expression = expression;
     }
 
+    public ExpressionStatement(Expression expression) {
+        this.expression = expression;
+    }
+
+    public ExpressionStatement() {
+    }
 
     /**
      * 返回当前语句第一个 Token 的字面量。
@@ -69,5 +77,17 @@ public class ExpressionStatement implements Statement {
             return expression.toString();
         }
         return "";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ExpressionStatement)) return false;
+        ExpressionStatement that = (ExpressionStatement) o;
+        return Objects.equals(expression, that.expression);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(expression);
     }
 }

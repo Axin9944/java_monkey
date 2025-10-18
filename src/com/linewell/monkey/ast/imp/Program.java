@@ -4,19 +4,28 @@ import com.linewell.monkey.ast.Node;
 import com.linewell.monkey.ast.Statement;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 抽象语法树（AST）的根节点，表示完整的程序。
  *
- * <p>在 monkey 语言中，程序由若干条 {@link Statement} 构成，
- * 因此 Program 节点是所有语法树的入口点。</p>
+ * <p>在 Monkey 语言中，程序由若干条 {@link Statement} 构成。
+ * Program 节点是整个语法树的顶层节点，用于保存这些语句。</p>
+ *
+ * <p>注意：</p>
+ * <ul>
+ *     <li>Program 本身不负责解析或构建语法树，AST 的构建由 {@code Parser} 完成。</li>
+ *     <li>Program 的主要职责是保存语法树的顶层语句，并提供访问和序列化方法。</li>
+ * </ul>
  *
  * <p>职责：</p>
  * <ul>
- *     <li>保存程序中的所有语句</li>
- *     <li>提供 tokenLiteral() 方法（通常返回第一条语句的 token 文字）</li>
- *     <li>提供 toString() 方法，将整个程序序列化为字符串</li>
+ *     <li>存储程序中的所有语句（List&lt;Statement&gt;）</li>
+ *     <li>提供 tokenLiteral() 方法，通常返回第一条语句的 token literal</li>
+ *     <li>提供 toString() 方法，将整个程序序列化为字符串表示</li>
  * </ul>
+ *
+ * @author axin
  */
 public class Program implements Node {
 
@@ -70,4 +79,15 @@ public class Program implements Node {
         return sb.toString();
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Program)) return false;
+        Program program = (Program) o;
+        return Objects.equals(statements, program.statements);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(statements);
+    }
 }

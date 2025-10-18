@@ -4,6 +4,8 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * 抽象语法树（AST）中的返回语句节点。
  *
@@ -49,6 +51,9 @@ public class ReturnStatement implements Statement {
         this.token = token;
     }
 
+    public ReturnStatement(Expression returnValue) {
+        this.returnValue = returnValue;
+    }
 
     @Override
     public Token getToken() {
@@ -86,5 +91,17 @@ public class ReturnStatement implements Statement {
         }
         sb.append(";");
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ReturnStatement)) return false;
+        ReturnStatement that = (ReturnStatement) o;
+        return Objects.equals(returnValue, that.returnValue);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(returnValue);
     }
 }

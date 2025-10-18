@@ -4,7 +4,6 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.ast.imp.*;
 import com.linewell.monkey.lexer.Lexer;
-import com.linewell.monkey.lexer.Lexer_Test;
 
 import java.util.*;
 
@@ -71,7 +70,7 @@ public class Parser_Test {
             }
 
             LetStatement letStatement = (LetStatement) statement;
-            if (!testLiteralExpression(letStatement.getExpression(), testCase.expectedValue)) {
+            if (!testLiteralExpression(letStatement.getValue(), testCase.expectedValue)) {
                 return;
             }
 
@@ -1103,7 +1102,7 @@ public class Parser_Test {
             return;
         }
 
-        Map<Expression, Expression> map = ((HashLiteral) expression).getExpression();
+        Map<Expression, Expression> map = ((HashLiteral) expression).getPairs();
         if (map.size() != 3) {
             System.err.println("map has wrong length. got=" + map.size());
             return;

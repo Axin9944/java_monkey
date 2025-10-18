@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -102,5 +103,17 @@ public class CallExpression implements Expression {
         sb.append(")");
 
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof CallExpression)) return false;
+        CallExpression that = (CallExpression) o;
+        return Objects.equals(function, that.function) && Objects.equals(arguments, that.arguments);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(function, arguments);
     }
 }

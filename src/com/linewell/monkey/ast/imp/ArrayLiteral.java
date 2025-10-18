@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -40,6 +41,10 @@ public class ArrayLiteral implements Expression {
 
     public ArrayLiteral(Token token, List<Expression> elements) {
         this.token = token;
+        this.elements = elements;
+    }
+
+    public ArrayLiteral(List<Expression> elements) {
         this.elements = elements;
     }
 
@@ -88,5 +93,18 @@ public class ArrayLiteral implements Expression {
         al.append("]");
 
         return al.toString();
+    }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof ArrayLiteral)) return false;
+        ArrayLiteral that = (ArrayLiteral) o;
+        return Objects.equals(elements, that.elements);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(elements);
     }
 }

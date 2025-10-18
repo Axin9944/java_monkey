@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  *  表示一个前缀表达式节点。
  *  <p>前缀表达式由一个操作符和一个右操作数构成，操作符位于操作数之前。例如：
@@ -65,6 +67,11 @@ public class PrefixExpression implements Expression {
         this.right = right;
     }
 
+    public PrefixExpression(String operator, Expression right) {
+        this.operator = operator;
+        this.right = right;
+    }
+
     /**
      * 返回该节点的词法单元字面量（即操作符的文本）
      *
@@ -93,5 +100,17 @@ public class PrefixExpression implements Expression {
         sb.append(")");
 
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof PrefixExpression)) return false;
+        PrefixExpression that = (PrefixExpression) o;
+        return Objects.equals(operator, that.operator) && Objects.equals(right, that.right);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(operator, right);
     }
 }

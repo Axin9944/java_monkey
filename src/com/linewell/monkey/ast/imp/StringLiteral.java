@@ -4,6 +4,8 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 import com.linewell.monkey.token.TokenType;
 
+import java.util.Objects;
+
 /**
  * 表示字符串字面量（STRING）的抽象语法树（AST）节点。
  * <p>
@@ -89,5 +91,17 @@ public class StringLiteral implements Expression {
     @Override
     public String toString() {
         return token.getLiteral();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof StringLiteral)) return false;
+        StringLiteral that = (StringLiteral) o;
+        return Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(value);
     }
 }

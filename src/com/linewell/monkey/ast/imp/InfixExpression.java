@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * 表示一个中缀表达式节点。
  * <p>中缀表达式由左操作数、操作符和右操作数构成，操作符位于中间。例如：
@@ -80,6 +82,12 @@ public class InfixExpression implements Expression {
         this.right = right;
     }
 
+    public InfixExpression(Expression left, String operator, Expression right) {
+        this.left = left;
+        this.operator = operator;
+        this.right = right;
+    }
+
     /**
      * 返回该节点的词法单元字面量（即操作符的文本）
      *
@@ -111,5 +119,17 @@ public class InfixExpression implements Expression {
         sb.append(")");
 
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof InfixExpression)) return false;
+        InfixExpression that = (InfixExpression) o;
+        return Objects.equals(left, that.left) && Objects.equals(operator, that.operator) && Objects.equals(right, that.right);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(left, operator, right);
     }
 }

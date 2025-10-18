@@ -354,7 +354,7 @@ public class Parser {
 
         nextToken();
 
-        stmt.setExpression(parseExpression(LOWEST));
+        stmt.setValue(parseExpression(LOWEST));
 
         if (peekTokenIs(TokenType.SEMICOLON)) {
             nextToken();
@@ -1002,7 +1002,7 @@ public class Parser {
      */
     private Expression parseHashLiteral() {
         HashLiteral hashLiteral = new HashLiteral(currentToken);
-        hashLiteral.setExpression(new HashMap<>());
+        hashLiteral.setPairs(new HashMap<>());
 
         while (!peekTokenIs(TokenType.RBRACE)) {
             nextToken();
@@ -1016,7 +1016,7 @@ public class Parser {
 
             Expression value = parseExpression(LOWEST);
 
-            hashLiteral.getExpression().put(key, value);
+            hashLiteral.getPairs().put(key, value);
 
             if ((!peekTokenIs(TokenType.RBRACE)) && (!expectPeek(TokenType.COMMA))) {
                 return null;

@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * 标识符（Identifier）AST 节点。
  *
@@ -57,5 +59,17 @@ public class Identifier implements Expression {
     @Override
     public String toString() {
         return value;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Identifier)) return false;
+        Identifier that = (Identifier) o;
+        return Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(value);
     }
 }

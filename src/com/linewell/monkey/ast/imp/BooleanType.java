@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * AST 节点：布尔类型表达式。
  *
@@ -64,5 +66,17 @@ public class BooleanType implements Expression {
     @Override
     public String toString() {
         return token.getLiteral();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof BooleanType)) return false;
+        BooleanType that = (BooleanType) o;
+        return value == that.value;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(value);
     }
 }

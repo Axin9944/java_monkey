@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * AST 节点：函数字面量 (Function Literal)
@@ -60,6 +61,11 @@ public class FunctionLiteral implements Expression {
         this.body = body;
     }
 
+    public FunctionLiteral(List<Identifier> parameters, BlockStatement body) {
+        this.parameters = parameters;
+        this.body = body;
+    }
+
     /**
      * 返回词法单元的字面值（一般是 "fn"）
      */
@@ -106,5 +112,17 @@ public class FunctionLiteral implements Expression {
         sb.append(body.toString());
 
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof FunctionLiteral)) return false;
+        FunctionLiteral that = (FunctionLiteral) o;
+        return Objects.equals(parameters, that.parameters) && Objects.equals(body, that.body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(parameters, body);
     }
 }

@@ -3,6 +3,8 @@ package com.linewell.monkey.ast.imp;
 import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.token.Token;
 
+import java.util.Objects;
+
 /**
  * AST 节点：if 表达式（IfExpression）。
  *
@@ -76,6 +78,12 @@ public class IfExpression implements Expression {
         this.alternative = alternative;
     }
 
+    public IfExpression(Expression condition, BlockStatement consequence, BlockStatement alternative) {
+        this.condition = condition;
+        this.consequence = consequence;
+        this.alternative = alternative;
+    }
+
     /**
      * 将 if 表达式序列化为字符串。
      * 格式类似于：
@@ -106,5 +114,19 @@ public class IfExpression implements Expression {
     @Override
     public String tokenLiteral() {
         return token.getLiteral();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof IfExpression)) return false;
+        IfExpression that = (IfExpression) o;
+        return Objects.equals(condition, that.condition)
+                && Objects.equals(consequence, that.consequence)
+                && Objects.equals(alternative, that.alternative);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(condition, consequence, alternative);
     }
 }

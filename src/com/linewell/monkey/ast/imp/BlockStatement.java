@@ -4,6 +4,7 @@ import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.token.Token;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * AST 节点：代码块语句（BlockStatement）。
@@ -46,6 +47,10 @@ public class BlockStatement implements Statement {
         this.statements = statements;
     }
 
+    public BlockStatement(List<Statement> statements) {
+        this.statements = statements;
+    }
+
     /**
      * 返回代码块的起始 Token。
      * 例如在 "{ let x = 1; }" 中返回的是 "{"。
@@ -78,5 +83,17 @@ public class BlockStatement implements Statement {
         }
 
         return sb.toString();
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof BlockStatement)) return false;
+        BlockStatement that = (BlockStatement) o;
+        return Objects.equals(statements, that.statements);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hashCode(statements);
     }
 }

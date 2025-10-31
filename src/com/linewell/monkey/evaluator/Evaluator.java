@@ -4,10 +4,16 @@ import com.linewell.monkey.ast.Expression;
 import com.linewell.monkey.ast.Node;
 import com.linewell.monkey.ast.Statement;
 import com.linewell.monkey.ast.imp.*;
+import com.linewell.monkey.ast.modify.Modify;
 import com.linewell.monkey.object.*;
 import com.linewell.monkey.object.imp.*;
+import com.linewell.monkey.token.Token;
+import com.linewell.monkey.token.TokenType;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 解释器核心类，负责对 AST 节点进行求值 (evaluation)，
@@ -186,7 +192,7 @@ public class Evaluator {
             CallExpression call = (CallExpression) node;
 
             if ((call.getFunction().tokenLiteral().equals("quote"))){
-                return quote(call.getArguments().get(0));
+                return quote(call.getArguments().get(0), env);
             }
 
             MonkeyObject eval = eval(call.getFunction(), env);
@@ -946,22 +952,122 @@ public class Evaluator {
     }
 
     /**
-     * 生成一个 {@link MonkeyQuote} 对象，用于封装未求值的抽象语法树（AST）节点。
+     * 生成一个 {@link MonkeyQuote} 对象，用于封装未求值的抽象语法树（AST）节点，
+     * 同时在节点中对所有 {@code unquote(...)} 调用进行求值和替换。
      * <p>
      * 当解释器在求值阶段遇到 {@code quote(...)} 表达式时，
-     * 不会对括号内的表达式进行求值，而是直接将对应的 AST 节点
-     * 封装为 {@link MonkeyQuote} 对象并返回。
-     * 该机制是 Monkey 语言宏系统（Macro System）的基础，
-     * 支持“代码即数据（code as data）”的语义。
+     * 不会对括号内的表达式整体求值，而是将其对应的 AST 节点封装为 {@link MonkeyQuote}。
+     * 但如果在被引用的表达式内部出现了 {@code unquote(expr)}，
+     * 则会在当前环境 {@code env} 中对 {@code expr} 求值，
+     * 并将求值结果替换为相应的 AST 节点，从而实现“代码生成中的部分求值”。
+     * <br><br>
+     * 该机制是 Monkey 语言宏系统（Macro System）的关键部分，
+     * 体现了“代码即数据（code as data）”的语义。
      * </p>
      *
-     *
-     * @param node 抽象语法树（AST）节点
-     * @return 封装该节点的 {@link MonkeyQuote} 对象
+     * @param node 原始的抽象语法树（AST）节点
+     * @param env  当前求值环境（符号表），用于在 {@code unquote(...)} 中进行表达式求值
+     * @return 封装处理后 AST 节点的 {@link MonkeyQuote} 对象
      * @see com.linewell.monkey.object.imp.MonkeyQuote
+     * @see #evalUnquotedCalls(Node, Environment)
      */
-    private static MonkeyObject quote(Node node) {
-        return new MonkeyQuote(node);
+    private static MonkeyObject quote(Node node, Environment env) {
+        Node node1 = evalUnquotedCalls(node, env);
+        return new MonkeyQuote(node1);
+    }
+
+    /**
+     * 判断给定的 AST 节点是否为一次对 "unquote" 函数的调用。
+     * <p>
+     * 在宏展开或模板求值过程中，"unquote" 用于指示其中的表达式应当被求值，
+     * 而不是仅作为语法树的一部分保留。
+     *
+     * @param node 当前待检查的 AST 节点
+     * @return 如果节点是一次 "unquote" 调用则返回 true，否则返回 false
+     */
+    private static boolean isUnquotedCall(Node node) {
+        if (!(node instanceof CallExpression)) {
+            return false;
+        }
+
+        CallExpression call = (CallExpression) node;
+
+        return call.getFunction().tokenLiteral().equals("unquote");
+    }
+
+    /**
+     * 将解释器中的运行时对象（MonkeyObject）转换为对应的 AST 节点。
+     * <p>
+     * 该方法用于在执行 "unquote" 时，将求值结果重新嵌入 AST 中。
+     * 目前支持的类型包括：
+     * <ul>
+     *     <li>{@link MonkeyInteger} → {@link IntegerLiteral}</li>
+     *     <li>{@link MonkeyBoolean} → {@link BooleanType}</li>
+     *     <li>{@link MonkeyQuote} → 直接返回其内部的节点</li>
+     * </ul>
+     *
+     * @param object 待转换的运行时对象
+     * @return 转换后的 AST 节点；若类型不支持则返回 null
+     */
+    private static Node convertObjectToASTNode(MonkeyObject object) {
+        if (object instanceof MonkeyInteger) {
+            Token token = new Token(TokenType.INT,
+                    String.format("%d", ((MonkeyInteger) object).getValue()));
+
+            return new IntegerLiteral(token, ((MonkeyInteger) object).getValue());
+        }
+
+        else if (object instanceof MonkeyBoolean) {
+            MonkeyBoolean monkeyBoolean = (MonkeyBoolean) object;
+            Token token;
+            if (monkeyBoolean.isValue()) {
+                token = new Token(TokenType.TRUE, "true");
+            } else {
+                token = new Token(TokenType.FALSE, "false");
+            }
+
+            return new BooleanType(token, monkeyBoolean.isValue());
+        }
+
+        else if (object instanceof MonkeyQuote) {
+            return ((MonkeyQuote) object).getNode();
+        }
+
+        return null;
+    }
+
+    /**
+     * 遍历给定的 AST 树，对其中的 "unquote" 调用进行求值并替换。
+     * <p>
+     * 对于形如 {@code unquote(expr)} 的节点，将在指定环境 {@code env} 中对
+     * {@code expr} 求值，并将结果转换为 AST 节点替换原调用。
+     * 非 "unquote" 调用或无效节点将保持不变。
+     *
+     * @param quoted 含有可能包含 "unquote" 调用的 AST 树
+     * @param env    当前求值环境
+     * @return 处理后的 AST 树，其中 "unquote" 调用已被展开
+     */
+    private static Node evalUnquotedCalls(Node quoted, Environment env) {
+        return Modify.modify(quoted, node -> {
+            if (!isUnquotedCall(node))  {
+                return node;
+            }
+
+            if (!(node instanceof CallExpression)) {
+                return node;
+            }
+
+            CallExpression call = (CallExpression) node;
+
+            List<Expression> arguments = call.getArguments();
+            if (arguments.size() != 1) {
+                return node;
+            }
+
+            MonkeyObject eval = eval(arguments.get(0), env);
+            Node newNode = convertObjectToASTNode(eval);
+            return newNode != null ? newNode : node;
+        });
     }
 
     /**

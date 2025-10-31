@@ -28,6 +28,11 @@ public class IntegerLiteral implements Expression {
      */
     private long value;
 
+    public IntegerLiteral(Token token, long value) {
+        this.token = token;
+        this.value = value;
+    }
+
     public Token getToken() {
         return token;
     }

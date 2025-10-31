@@ -1,6 +1,5 @@
 package com.linewell.monkey.evaluator;
 
-import com.linewell.monkey.ast.imp.ArrayLiteral;
 import com.linewell.monkey.ast.imp.Identifier;
 import com.linewell.monkey.ast.imp.Program;
 import com.linewell.monkey.lexer.Lexer;
@@ -42,6 +41,8 @@ import static com.linewell.monkey.object.imp.MonkeyBoolean.TRUE;
  *      <li>数组字面量解析与求值测试（{@link #testArrayLiteral()}）</li>
  *      <li>数组索引表达式求值测试（{@link #testArrayIndexExpressions()}）</li>
  *      <li>quote函数求值 （{@link #testQuote()}）</li>
+ *      <li>unquote函数求值 及 unquote与quote的组合使用
+ *          （{@link #testQuoteUnquote()}） </li>
  * </ul>
  * <p>
  * 测试方法通过将输入的源代码字符串送入词法分析器、语法分析器，
@@ -105,6 +106,9 @@ public class EvaluatorTest {
 
         // 执行 quote函数 测试
         testQuote();
+
+        // 执行 quote 及 unquote 测试
+        testQuoteUnquote();
     }
 
     /**
@@ -919,6 +923,87 @@ public class EvaluatorTest {
             System.out.println("[Parse] ===>" + testCase.input + " = "
                     + testCase.expected);
         }
+    }
+    /**
+     * 测试 {@code quote(...)} 与 {@code unquote(...)} 组合使用时的语义与求值行为。
+     * <p>
+     * 本方法验证 Monkey 语言中宏系统（Macro System）的核心机制：
+     * <ul>
+     *   <li>{@code quote(expr)}：在求值阶段不执行 {@code expr}，而是返回其对应的抽象语法树（AST）。</li>
+     *   <li>{@code unquote(expr)}：在 {@code quote(...)} 内部使用时，会在当前环境中对 {@code expr} 求值，
+     *       并将结果嵌入回 AST 中。</li>
+     * </ul>
+     * <p>
+     * 每个测试用例由输入的 Monkey 源代码字符串和期望输出的 AST 字符串表示，
+     * 测试目标是确保 {@link MonkeyQuote} 对象中封装的 AST 与预期一致。
+     * </p>
+     * <p>
+     * 例如：
+     * <pre>
+     * quote(unquote(4 + 4))        → 8
+     * quote(8 + unquote(4 + 4))    → (8 + 8)
+     * quote(unquote(quote(4 + 4))) → (4 + 4)
+     * </pre>
+     * </p>
+     * 测试逻辑：
+     * <ol>
+     *   <li>调用 {@code testEval(input)} 解析并执行输入程序。</li>
+     *   <li>断言返回值为 {@link MonkeyQuote} 类型。</li>
+     *   <li>比较 {@link MonkeyQuote#getNode()} 的字符串形式与预期结果是否一致。</li>
+     * </ol>
+     * <p>
+     * 若结果不匹配，则在控制台输出错误提示；否则打印成功的解析结果。
+     * </p>
+     *
+     * @see com.linewell.monkey.object.imp.MonkeyQuote
+     * @see quote(Node, Environment) 方法：生成 MonkeyQuote 对象
+     * @see evalUnquotedCalls(Node, Environment) 方法：处理 unquote 调用
+     */
+    private static void testQuoteUnquote() {
+        List<QuoteTestCase> quoteTestCases = Arrays.asList(
+                new QuoteTestCase("quote(unquote(4))", "4"),
+                new QuoteTestCase("quote(unquote(4 + 4))", "8"),
+                new QuoteTestCase("quote(8 + unquote(4 + 4))", "(8 + 8)"),
+                new QuoteTestCase("quote(unquote(4 + 4) + 8)", "(8 + 8)"),
+                new QuoteTestCase("let foobat = 8 \n" +
+                        "quote(foobat)", "foobat"),
+                new QuoteTestCase("let foooba = 8;\n" +
+                        "\t\t\t\t\tquote(unquote(foooba))", "8"),
+                new QuoteTestCase("quote(unquote(true))",
+                        "true"),
+                new QuoteTestCase("quote(unquote(true == false))",
+                        "false"),
+                new QuoteTestCase("quote(unquote(quote(4 + 4)))",
+                        "(4 + 4)"),
+                new QuoteTestCase("let quotedInfixExpression = quote(4 + 4);\n" +
+                        "\t\t\t\t\tquote(unquote(4 + 4) + unquote(quotedInfixExpression))",
+                        "(8 + (4 + 4))")
+        );
+
+        for (QuoteTestCase testCase : quoteTestCases) {
+            MonkeyObject monkeyObject = testEval(testCase.input);
+            if (!(monkeyObject instanceof MonkeyQuote)) {
+                System.err.println("expxted MonkeyQuote. got=" +
+                        monkeyObject.type());
+                return;
+            }
+
+            MonkeyQuote quote = (MonkeyQuote) monkeyObject;
+
+            if (quote.getNode() == null) {
+                System.err.println("quote.getNode is null");
+                return;
+            }
+
+            if (!quote.getNode().toString().equals(testCase.expected)) {
+                System.err.println("not equal. got=" + quote.getNode().toString() +
+                        ", want=" + testCase.expected);
+            }
+
+            System.out.println("[Parse] ===> " + testCase.input + " = " +
+                    testCase.expected);
+        }
+
     }
 
     /**

@@ -28,7 +28,8 @@ public class Lexer_Test {
                 "\"foobar\"\n" +
                 "\"foo bar\"\n" +
                 "[1, 2];\n" +
-                "{\"foo\": \"bar\"}\n";
+                "{\"foo\": \"bar\"}\n" +
+                "macro(x, y) {x + y;};";
 
         TestCase[] tests = {new TestCase(TokenType.LET, "let"),
                 new TestCase(TokenType.IDENT, "five"),
@@ -116,6 +117,19 @@ public class Lexer_Test {
                 new TestCase(TokenType.COLON, ":"),
                 new TestCase(TokenType.STRING, "bar"),
                 new TestCase(TokenType.RBRACE, "}"),
+                new TestCase(TokenType.MACRO, "macro"),
+                new TestCase(TokenType.LPAREN, "("),
+                new TestCase(TokenType.IDENT, "x"),
+                new TestCase(TokenType.COMMA, ","),
+                new TestCase(TokenType.IDENT, "y"),
+                new TestCase(TokenType.RPAREN, ")"),
+                new TestCase(TokenType.LBRACE, "{"),
+                new TestCase(TokenType.IDENT, "x"),
+                new TestCase(TokenType.PLUS, "+"),
+                new TestCase(TokenType.IDENT, "y"),
+                new TestCase(TokenType.SEMICOLON, ";"),
+                new TestCase(TokenType.RBRACE, "}"),
+                new TestCase(TokenType.SEMICOLON, ";"),
                 new TestCase(TokenType.EOF, ""),};
 
         Lexer lexer = new Lexer(input);

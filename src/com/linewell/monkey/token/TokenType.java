@@ -107,6 +107,9 @@ public enum TokenType {
     ELSE("ELSE"),
     /** 字符串字面量 */
     STRING("STRING"),
+
+    /** 关键字宏 macro */
+    MACRO("MACRO"),
     /** 返回语句关键字 'return' */
     RETURN("RETURN");
 
@@ -142,6 +145,7 @@ public enum TokenType {
         keywords.put("if", IF);
         keywords.put("else", ELSE);
         keywords.put("return", RETURN);
+        keywords.put("macro", MACRO);
     }
 
     /**

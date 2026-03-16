@@ -1,7 +1,9 @@
 package com.linewell.monkey.repl;
 
+import com.linewell.monkey.ast.Node;
 import com.linewell.monkey.ast.imp.Program;
 import com.linewell.monkey.evaluator.Evaluator;
+import com.linewell.monkey.evaluator.MacroExpansion;
 import com.linewell.monkey.lexer.Lexer;
 import com.linewell.monkey.object.Environment;
 import com.linewell.monkey.object.MonkeyObject;
@@ -59,6 +61,8 @@ public class REPL {
     public static void start(Reader in, Writer out) {
         Scanner scanner = new Scanner(new BufferedReader(in));
         Environment env = new Environment();
+        Environment macroEnv = new Environment();
+        MacroExpansion evaluator = new MacroExpansion();
 
         try {
             while (true) {
@@ -85,7 +89,10 @@ public class REPL {
                     continue;
                 }
 
-                MonkeyObject eval = Evaluator.eval(program, env);
+                evaluator.defineMacros(program, macroEnv);
+                Node expanded = evaluator.expandMacros(program, macroEnv);
+
+                MonkeyObject eval = Evaluator.eval(expanded, env);
 
                 if (eval != null) {
                     System.out.println(eval.inspect());

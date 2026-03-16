@@ -259,6 +259,8 @@ public class Parser {
         registerPrefix(TokenType.LBRACKET, this::parseArrayLiteral);
         // {
         registerPrefix(TokenType.LBRACE, this::parseHashLiteral);
+        // macro
+        registerPrefix(TokenType.MACRO, this::parseMacroLiteral);
 
         // 注册中缀解析函数
         // +
@@ -1028,5 +1030,33 @@ public class Parser {
         }
 
         return hashLiteral;
+    }
+
+    /**
+     * 解析Monkey语言中的宏字面量（Macro Literal），生成对应的MacroLiteral抽象语法树（AST）节点。
+     * <p>
+     * 宏字面量的语法结构为：macro(参数列表) { 语句块 }
+     * 该方法会按语法规则依次解析宏的括号、参数列表、花括号包裹的宏体，最终组装成完整的MacroLiteral对象。
+     * 如果解析过程中遇到语法错误（比如缺少括号/花括号），会返回null表示解析失败。
+     *
+     * @return 解析成功时返回封装了宏参数和宏体的MacroLiteral AST节点；解析失败时返回null
+     */
+    private Expression parseMacroLiteral() {
+        MacroLiteral macroLiteral = new MacroLiteral();
+        macroLiteral.setToken(currentToken);
+
+        if (!expectPeek(TokenType.LPAREN)) {
+            return null;
+        }
+
+        macroLiteral.setParameters(parseFunctionParameters());
+
+        if (!expectPeek(TokenType.LBRACE)) {
+            return null;
+        }
+
+        macroLiteral.setBody(parseBlockStatement());
+
+        return macroLiteral;
     }
 }

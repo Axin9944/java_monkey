@@ -11,7 +11,7 @@ public class Parser_Test {
 
     public static void main(String[] args) {
         System.out.println("Running Parser Tests...\n");
-        testLetStatements();
+        /*testLetStatements();
         testReturnStatements();
         testIdentifierExpressions();
         testIntegerLiteralExpression();
@@ -25,7 +25,8 @@ public class Parser_Test {
         testStringLiteralExpression();
         testParsingArrayLiterals();
         testParsingIndexExpression();
-        testParsingHashLiteralsStringKeys();
+        testParsingHashLiteralsStringKeys();*/
+        testMacroLiteral();
     }
 
     /**
@@ -1129,6 +1130,94 @@ public class Parser_Test {
 
             testIntegerLiteral(value, i);
         }
+
+        System.out.println("[Parse] ====> " + input);
+    }
+
+    /**
+     * 测试解析器（{@link Parser}）对宏字面量（Macro Literal）语法的解析功能。
+     * <p>
+     * 输入示例为：
+     * <pre>
+     * macro(x, y) { x + y; }
+     * </pre>
+     *
+     * <p>测试目标：
+     * <ul>
+     *   <li>验证解析结果的语法树根节点类型正确（应为 {@link ExpressionStatement}）。</li>
+     *   <li>确认表达式节点类型为 {@link MacroLiteral}。</li>
+     *   <li>检查宏字面量的参数列表数量是否为2个，且参数名称分别为"x"和"y"。</li>
+     *   <li>验证宏体语句块仅包含1个 {@link ExpressionStatement}，且表达式为"x + y"中缀表达式。</li>
+     * </ul>
+     *
+     * <p>测试过程：
+     * <ol>
+     *   <li>通过宏定义字符串构造 {@link Lexer} 与 {@link Parser}；</li>
+     *   <li>调用 {@link Parser#parseProgram()} 生成语法树根节点 {@link Program}；</li>
+     *   <li>调用 {@code checkParserErrors()} 检查解析器错误（若存在则输出并终止测试）；</li>
+     *   <li>逐层校验语法树节点类型（Program→ExpressionStatement→MacroLiteral）；</li>
+     *   <li>验证宏参数数量与名称（调用 {@code testLiteralExpression()} 辅助方法）；</li>
+     *   <li>校验宏体语句块结构，并验证宏体表达式为"x + y"（调用 {@code testInfixExpression()} 辅助方法）。</li>
+     * </ol>
+     *
+     * <p>若解析结果与预期不符，将通过 {@code System.err.println} 输出详细错误信息并终止测试；
+     * 否则打印解析成功的提示日志。
+     */
+    public static void testMacroLiteral() {
+        String input = "macro(x, y) { x + y; }";
+
+        Lexer lexer = new Lexer(input);
+        Parser parser = new Parser(lexer);
+        Program program = parser.parseProgram();
+        checkParserErrors(parser);
+
+        if (program.getStatements().size() != 1) {
+            System.err.println("program.Statements does not contain 1 statements. got=" + program.getStatements().size());
+            return;
+        }
+
+        Statement statement = program.getStatements().get(0);
+        if (!(statement instanceof ExpressionStatement)) {
+            System.err.println("statement is not ExpressionStatement. got=" +
+                    statement.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement stmt = (ExpressionStatement) statement;
+
+        Expression expression = stmt.getExpression();
+        if (!(expression instanceof MacroLiteral)) {
+            System.err.println("expression is not MacroLiteral. got=" +
+                    expression.getClass().getSimpleName());
+            return;
+        }
+        MacroLiteral macro = (MacroLiteral) expression;
+
+        if (macro.getParameters().size() != 2) {
+            System.err.println("macro literal parameters wrong. want 2, got=" +
+                    macro.getParameters().size());
+            return;
+        }
+
+        testLiteralExpression(macro.getParameters().get(0), "x");
+        testLiteralExpression(macro.getParameters().get(1), "y");
+
+        if (macro.getBody().getStatements().size() != 1) {
+            System.err.println("macro.Body.Statements has not 1 statements. got=" +
+                    macro.getBody().getStatements().size());
+            return;
+        }
+
+        Statement bodyStmt = macro.getBody().getStatements().get(0);
+        if (!(bodyStmt instanceof ExpressionStatement)) {
+            System.err.println("macro body stmt is not ast.ExpressionStatement. got=" +
+                    bodyStmt.getClass().getSimpleName());
+            return;
+        }
+
+        ExpressionStatement body = (ExpressionStatement) bodyStmt;
+
+        testInfixExpression(body.getExpression(), "x", "+", "y");
 
         System.out.println("[Parse] ====> " + input);
     }

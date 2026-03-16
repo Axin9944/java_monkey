@@ -144,7 +144,14 @@ public enum ObjectType {
      * 错误对象。
      * <p>用于表示运行时错误，如运算符类型不匹配、未定义的标识符等。</p>
      */
-    ERROR_OBJ("ERROR");
+    ERROR_OBJ("ERROR"),
+
+    /**
+     * 宏对象。
+     * <p>用于表示Monkey解释器运行时的宏实例，封装宏的参数、体语句块和定义时的执行环境，
+     * 是宏替换的核心载体。</p>
+     */
+    MACRO_OBJ("MACRO");
 
     private final String literal;
 
